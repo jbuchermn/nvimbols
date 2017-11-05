@@ -30,16 +30,16 @@ class NVimbols:
         if self._current_symbol is None:
             content += "No symbol\nOther useful information to be\n   displayed here in the future"
         else:
-            content += "Symbol: %s\nKind: %s\n" % (self._current_symbol._name, self._current_symbol._kind)
+            content += "Symbol: {{{{Statement}}}}%s{{{{/Statement}}}}\nKind: %s\n" % (self._current_symbol._name, self._current_symbol._kind)
 
             if(len(self._current_symbol._references) > 0):
-                content += "\n-----Targets-----\n"
+                content += "\n{{{{Title}}}}-----Targets-----{{{{/Title}}}}\n"
                 for symbol in self._current_symbol._references:
-                    content += "  %s\n    %s %s" % (symbol._name, symbol._kind, os.path.basename(symbol._location._filename))
+                    content += "  {{{{Statement}}}}%s{{{{/Statement}}}}\n    %s %s" % (symbol._name, symbol._kind, os.path.basename(symbol._location._filename))
 
             if(len(self._current_symbol._referenced_by) > 0):
-                content += "\n-----Usages-----\n"
+                content += "\n{{{{Title}}}}-----Usages-----{{{{/Title}}}}\n"
                 for symbol in self._current_symbol._referenced_by:
-                    content += "  %s\n    %s %s" % (symbol._name, symbol._kind, os.path.basename(symbol._location._filename))
+                    content += "  {{{{Statement}}}}%s{{{{/Statement}}}}\n    %s %s" % (symbol._name, symbol._kind, os.path.basename(symbol._location._filename))
 
         buf[:] = content.split("\n")

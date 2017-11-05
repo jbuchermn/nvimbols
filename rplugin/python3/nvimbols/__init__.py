@@ -85,8 +85,9 @@ class NVimbolsPlugin(object):
         try:
             window_number = args[0]['window_number']
             buf = self._vim.windows[window_number - 1].buffer
-
+            buf.api.set_option('modifiable', True)
             self._main.render(buf)
+            buf.api.set_option('modifiable', False)
         except Exception as err:
             on_error(self._vim, err)
 

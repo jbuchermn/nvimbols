@@ -1,6 +1,6 @@
 
 function! nvimbols#window_name()
-    return "window_nvimbols"
+    return "nvimbols"
 endfunction
 
 function! nvimbols#window_number()
@@ -40,7 +40,7 @@ function! nvimbols#no_symbol() abort
 endfunction
 
 function! nvimbols#open_window() abort
-    " "Borrowed" from Vim Tagbar
+    " 'Borrowed' from Vim Tagbar
 
     let window_name = nvimbols#window_name()
     let pos = 'botright '
@@ -51,14 +51,16 @@ function! nvimbols#open_window() abort
 
     setlocal filetype=nvimbols
 
-    setlocal noreadonly " in case the "view" mode is used
+    setlocal noreadonly 
     setlocal buftype=nofile
     setlocal bufhidden=hide
     setlocal noswapfile
     setlocal nobuflisted
-    " setlocal nomodifiable
-    " setlocal noundofile
+    setlocal nomodifiable
+    
     setlocal textwidth=0
+
+    setlocal conceallevel=3
 
     setlocal nolist
     setlocal nowrap
@@ -67,16 +69,19 @@ function! nvimbols#open_window() abort
 
     setlocal nofoldenable
     setlocal foldcolumn=0
-    " Reset fold settings in case a plugin set them globally to something
-    " expensive. Apparently 'foldexpr' gets executed even if 'foldenable' is
-    " off, and then for every appended line (like with :put).
     setlocal foldmethod&
     setlocal foldexpr&
 
     let &l:statusline = 'nvimbols'
 
-    " This will issue render
-    execute 'wincmd p'
+    setlocal modifiable
+    silent %delete _
+    setlocal nomodifiable
+
+    call nvimbols#render_if_open()
+
+    " Switch back
+    " execute 'wincmd p'
 endfunction
 
 function! nvimbols#close_window() abort

@@ -1,3 +1,6 @@
+" TODO!
+"   init should not be called when opening the nvimbols window!
+"   update_location should only be called when not inside the nvimbols window
 "
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 " Guard
