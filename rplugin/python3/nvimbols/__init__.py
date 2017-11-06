@@ -1,8 +1,10 @@
 import neovim
 import os
+import time
 
 from nvimbols.util import find_rplugins, import_plugin, on_error, log
 from nvimbols.nvimbols import NVimbols
+from nvimbols.symbol import SymbolLocation
 
 
 @neovim.plugin
@@ -54,14 +56,12 @@ class NVimbolsPlugin(object):
         else:
             self._main = None
 
-        log('[INIT FINISHED]')
-
     @neovim.function('_nvimbols_update_location')
     def update_location(self, args):
         if(self._main is None):
             return
 
-        log('[UPDATE_LOCATION START]')
+        log('[UPDATE_LOCATION]')
 
         try:
             buf = self._vim.current.buffer
@@ -69,18 +69,18 @@ class NVimbolsPlugin(object):
             line = args[0]
             col = args[1]
 
-            self._main.update_location(filename, line, col)
+            location = SymbolLocation(filename, line, col)
+            self._main.update_location(location)
+
         except Exception as err:
             on_error(self._vim, err)
-
-        log('[UPDATE_LOCATION FINISHED]')
 
     @neovim.function('_nvimbols_render')
     def render(self, args):
         if(self._main is None):
             return
 
-        log('[RENDER START]')
+        log('[RENDER]')
 
         try:
             window_number = args[0]['window_number']
@@ -90,9 +90,6 @@ class NVimbolsPlugin(object):
             buf.api.set_option('modifiable', False)
         except Exception as err:
             on_error(self._vim, err)
-
-        log('[RENDER FINISHED]')
-
 
 
 

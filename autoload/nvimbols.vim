@@ -9,6 +9,10 @@ function! nvimbols#window_number()
 endfunction
 
 function! nvimbols#init_config()
+    if winnr() == nvimbols#window_number()
+        return
+    endif
+
     call _nvimbols_init({
                 \ 'ft' : &ft,
                 \ 'rtp' : &runtimepath
@@ -16,6 +20,10 @@ function! nvimbols#init_config()
 endfunction
 
 function! nvimbols#update_location()
+    if winnr() == nvimbols#window_number()
+        return
+    endif
+
     let [lnum, col] = getpos('.')[1:2]
     call _nvimbols_update_location(lnum, col)
 endfunction
@@ -29,15 +37,10 @@ function! nvimbols#render_if_open()
     endif
 endfunction
 
-function! nvimbols#update_symbol(symbol) abort
-    let s:current_symbol = a:symbol
+function! nvimbols#update_symbol() abort
     call nvimbols#render_if_open()
 endfunction
 
-function! nvimbols#no_symbol() abort
-    unlet s:current_symbol
-    call nvimbols#render_if_open()
-endfunction
 
 function! nvimbols#open_window() abort
     " 'Borrowed' from Vim Tagbar

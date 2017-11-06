@@ -1,6 +1,3 @@
-" TODO!
-"   init should not be called when opening the nvimbols window!
-"   update_location should only be called when not inside the nvimbols window
 "
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 " Guard
@@ -10,16 +7,6 @@ if exists('g:nvimbols_loaded') || &compatible
     finish
 endif
 let g:nvimbols_loaded = 1
-
-"
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-" Initialization
-"
-
-augroup nvimbols_init
-    autocmd!
-    autocmd BufEnter * :call nvimbols#init_config()
-augroup end
 
 "
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -35,10 +22,15 @@ endif
 
 "
 """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+" Initialization
 " Inform python plugin, where we are
 "
 
 if(g:nvimbols_enabled)
+    augroup nvimbols_init
+        autocmd!
+        autocmd BufEnter * :call nvimbols#init_config()
+    augroup end
     augroup nvimbols_root
         autocmd!
         autocmd BufEnter * :call nvimbols#update_location()
@@ -46,6 +38,9 @@ if(g:nvimbols_enabled)
         autocmd CursorMoved * :call nvimbols#update_location()
     augroup end
 else
+    augroup nvimbols_init
+        autocmd!
+    augroup end
     augroup nvimbols_root
         autocmd!
     augroup end

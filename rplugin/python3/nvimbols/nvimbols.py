@@ -1,5 +1,7 @@
 import os
+from threading import Thread, Lock
 
+from nvimbols.util import log, on_error
 from nvimbols.symbol import SymbolLocation
 
 
@@ -11,18 +13,43 @@ class NVimbols:
 
         self._current_symbol = None
 
-    def update_current_symbol(self, symbol):
-        if(self._current_symbol != symbol):
-            self._current_symbol = symbol
-            if(self._current_symbol is None):
-                self._vim.call("nvimbols#no_symbol")
-            else:
-                self._vim.call("nvimbols#update_symbol", self._current_symbol.to_dict())
+        self._lock = Lock()
+        self._location_queue = None
 
-    def update_location(self, filename, line, col):
-        location = SymbolLocation(filename, line, col)
-        if(self._current_symbol is None or (not self._current_symbol._location.contains(location))):
-            self.update_current_symbol(self._source.symbol_at_location(location))
+    def _update_location(self):
+        if(self._location_queue is None):
+            return
+
+        repeat = False
+
+        if self._lock.acquire(False):
+            try:
+                # Backup location to check if it is still valid after the call
+                location = SymbolLocation(self._location_queue._filename, self._location_queue._start_line, self._location_queue._start_col)
+
+                # Possibly expensive call, during which _location_queue may change
+                log("[UPDATE_LOCATION] Getting symbol")
+                symbol = self._source.symbol_at_location(location)
+
+                if(self._location_queue == location):
+                    self._location_queue = None
+
+                    if(self._current_symbol != symbol):
+                        self._current_symbol = symbol
+                        self._vim.session.threadsafe_call(lambda: self._vim.call("nvimbols#update_symbol"))
+                else:
+                    repeat = True
+            except Exception as err:
+                on_error(err)
+            finally:
+                self._lock.release()
+
+            if(repeat):
+                self._update_location()
+
+    def update_location(self, location):
+        self._location_queue = location
+        Thread(target=NVimbols._update_location, args=(self,)).start()
 
     def render(self, buf):
         content = ""
