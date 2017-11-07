@@ -24,8 +24,8 @@ function! nvimbols#update_location()
         return
     endif
 
-    let [lnum, col] = getpos('.')[1:2]
-    call _nvimbols_update_location(lnum, col)
+    let [line, col] = getpos('.')[1:2]
+    call _nvimbols_update_location(line, col)
 endfunction
 
 function! nvimbols#render_if_open()
@@ -39,6 +39,17 @@ endfunction
 
 function! nvimbols#update_symbol() abort
     call nvimbols#render_if_open()
+endfunction
+
+function! nvimbols#get_link() abort
+    if winnr() != nvimbols#window_number()
+        return
+    endif
+
+    let [line, col] = getpos('.')[1:2]
+    let result = _nvimbols_get_link(line, col)
+    echom(result)
+    return result
 endfunction
 
 
