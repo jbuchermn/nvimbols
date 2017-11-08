@@ -44,7 +44,7 @@ def import_plugin(path, source, classname):
 
 
 def error(vim, expr):
-    vim.command("echom(\"[nvimbols] %s \")" % str(expr).replace("\"", "\\\""))
+    vim.session.threadsafe_call(lambda: vim.command("echom(\"[nvimbols] %s \")" % str(expr).replace("\"", "\\\"")))
     log("[error] %s" % str(expr))
 
 
