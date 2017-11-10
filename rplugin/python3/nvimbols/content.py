@@ -12,7 +12,6 @@ class Component:
 
 class Wrapper(Component):
     def __init__(self, *args):
-        log(args)
         Component.__init__(self, args)
 
 

@@ -51,4 +51,17 @@ endif
 " Bar
 "
 
-command! NvimbolsToggle :call nvimbols#toggle_window()
+command! NVimbolsToggle :call nvimbols#toggle_window()
+command! NVimbolsFollow :call nvimbols#follow_link_to_first_reference()
+
+"
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+" Default bindings: <leader>s
+"
+if(!exists('g:nvimbols_default_bindings'))
+    let g:nvimbols_default_bindings = 1
+endif
+
+if(g:nvimbols_default_bindings)
+    nnoremap <silent> <leader>sf :NVimbolsFollow<CR>
+endif

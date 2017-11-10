@@ -1,9 +1,11 @@
 import os
-from threading import Thread, Lock
+from threading import Lock
 
 from nvimbols.util import log, on_error
 from nvimbols.symbol import SymbolLocation
 from nvimbols.content import Content, Wrapper, Highlight, Link
+from nvimbols.async import JobQueue
+
 
 class NVimbols:
     def __init__(self, vim, context, source):
@@ -15,43 +17,7 @@ class NVimbols:
         self._current_content = None
 
         self._lock = Lock()
-        self._location_queue = None
-
-    def _update_location(self):
-        if(self._location_queue is None):
-            return
-
-        repeat = False
-
-        if self._lock.acquire(False):
-            try:
-                # Backup location to check if it is still valid after the call
-                location = SymbolLocation(self._location_queue._filename, self._location_queue._start_line, self._location_queue._start_col)
-
-                # Possibly expensive call, during which _location_queue may change
-                log("[UPDATE_LOCATION] Getting symbol")
-                symbol = self._source.symbol_at_location(location)
-
-                if(self._location_queue == location):
-                    self._location_queue = None
-
-                    if(self._current_symbol != symbol):
-                        self._current_symbol = symbol
-                        self._current_content = self._render()
-                        self._vim.session.threadsafe_call(lambda: self._vim.call("nvimbols#update_symbol"))
-                else:
-                    repeat = True
-            except Exception as err:
-                on_error(self._vim, err)
-            finally:
-                self._lock.release()
-
-            if(repeat):
-                self._update_location()
-
-    def update_location(self, location):
-        self._location_queue = location
-        Thread(target=NVimbols._update_location, args=(self,)).start()
+        self._job_queue = JobQueue()
 
     def _render(self):
         content = Content()
@@ -70,33 +36,63 @@ class NVimbols:
             if(len(self._current_symbol._referenced_by) > 0):
                 content += Wrapper("\n", Highlight('Title', "-----Usages-----"), "\n")
                 for symbol in self._current_symbol._referenced_by:
-                    content += Link(symbol._location,
-                                    Wrapper(Highlight('Statement', symbol._name), "\n    ", Highlight('Statement', symbol._kind), " ", os.path.basename(symbol._location._filename), "\n"))
+                    content += Link(symbol._location, Wrapper(Highlight('Type', os.path.basename(symbol._location._filename)), ":", symbol._location._start_line, "\n"))
 
         return content
 
+    def _update_symbol(self, symbol):
+        """
+        Will be called by the JobQueue, i. e. in a new thread.
+        """
+        with self._lock:
+            if(self._current_symbol != symbol):
+                self._current_symbol = symbol
+                self._current_content = self._render()
+                self._vim.session.threadsafe_call(lambda: self._vim.call("nvimbols#update_symbol"))
+
+    def update_location(self, location):
+        with self._lock:
+            self._job_queue.add_job(
+                lambda: self._source.symbol_at_location(location),
+                lambda symbol, err: self._update_symbol(symbol) if err is None else on_error(self._vim, err)
+            )
+
     def render(self, buf):
-        if(self._current_content is None):
-            return
+        self._job_queue.join()
+        with self._lock:
+            if(self._current_content is None):
+                return
 
-        buf.api.set_option('modifiable', True)
+            buf.api.set_option('modifiable', True)
 
-        buf[:] = self._current_content.raw()
-        for highlight in self._current_content.highlights():
-            buf.add_highlight(highlight.name, highlight.line - 1, highlight.start_col - 1, highlight.end_col - 1, -1)
+            buf[:] = self._current_content.raw()
+            for highlight in self._current_content.highlights():
+                buf.add_highlight(highlight.name, highlight.line - 1, highlight.start_col - 1, highlight.end_col - 1, -1)
 
-        buf.api.set_option('modifiable', False)
+            buf.api.set_option('modifiable', False)
 
     def get_link(self, line, col):
-        if(self._current_content is None):
+        self._job_queue.join()
+        with self._lock:
+            if(self._current_content is None):
+                return ""
+
+            for link in self._current_content.links():
+                if(link.line == line and link.start_col <= col and (link.end_col == -1 or link.end_col >= col)):
+                    return str(link.target)
+
             return ""
 
-        for link in self._current_content.links():
-            if(link.line == line and link.start_col <= col and (link.end_col == -1 or link.end_col >= col)):
-                return str(link.target)
+    def get_link_to_first_reference(self):
+        self._job_queue.join()
+        with self._lock: 
+            if(self._current_symbol is None):
+                return ""
+            
+            if(len(self._current_symbol._references) == 0):
+                return ""
 
-        return ""
-
+            return str(self._current_symbol._references[0]._location)
 
 
 

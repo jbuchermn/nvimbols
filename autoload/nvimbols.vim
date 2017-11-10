@@ -24,7 +24,26 @@ function! nvimbols#update_location()
         return
     endif
 
+    "
+    " CursorMoved appears buggy (or somehow reacting to python render events..)
+    " Not very nice fix here..
+    "
+    if !exists('s:LastLine')
+        let s:LastLine=-1
+    endif
+    if !exists('s:LastCol')
+        let s:LastCol=-1
+    endif
+
     let [line, col] = getpos('.')[1:2]
+
+    if line==s:LastLine && col==s:LastCol
+        return
+    endif
+
+    let s:LastLine = line
+    let s:LastCol = col
+
     call _nvimbols_update_location(line, col)
 endfunction
 
@@ -41,15 +60,39 @@ function! nvimbols#update_symbol() abort
     call nvimbols#render_if_open()
 endfunction
 
-function! nvimbols#get_link() abort
+function! nvimbols#follow_link() abort
     if winnr() != nvimbols#window_number()
         return
     endif
 
     let [line, col] = getpos('.')[1:2]
     let result = _nvimbols_get_link(line, col)
-    echom(result)
-    return result
+    if result==""
+        return
+    endif
+
+    let t_filename = split(result,":")[0]
+    let t_line = split(result,":")[1]
+    let t_col = split(result,":")[2]
+
+    execute 'wincmd p'
+    execute 'edit ' . t_filename
+    call cursor(t_line, t_col)
+endfunction
+
+function! nvimbols#follow_link_to_first_reference() abort
+    let result = _nvimbols_get_link_to_first_reference()
+    if result==""
+        return
+    endif
+
+    let t_filename = split(result,":")[0]
+    let t_line = split(result,":")[1]
+    let t_col = split(result,":")[2]
+
+    execute 'wincmd p'
+    execute 'edit ' . t_filename
+    call cursor(t_line, t_col)
 endfunction
 
 

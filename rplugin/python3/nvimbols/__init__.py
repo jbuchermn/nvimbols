@@ -16,7 +16,7 @@ class NVimbolsPlugin(object):
 
     @neovim.function('_nvimbols_init')
     def init(self, args):
-        log('[INIT START]')
+        log('[INIT]')
         context = args[0]
 
         if(self._sources is None):
@@ -44,7 +44,7 @@ class NVimbolsPlugin(object):
         ft = context['ft']
         possible_sources = []
         for s in self._sources:
-            if(ft in self._sources[s].supported_filetypes()):
+            if(ft in self._sources[s].filetypes):
                 possible_sources += [self._sources[s]]
 
         selected_source = None
@@ -55,6 +55,8 @@ class NVimbolsPlugin(object):
             self._main = NVimbols(self._vim, context, selected_source)
         else:
             self._main = None
+
+        log('[INIT FINISHED]')
 
     @neovim.function('_nvimbols_update_location')
     def update_location(self, args):
@@ -99,8 +101,12 @@ class NVimbolsPlugin(object):
         except Exception as err:
             on_error(self._vim, err)
 
-
-
+    @neovim.function('_nvimbols_get_link_to_first_reference', sync=True)
+    def get_link(self, args):
+        try:
+            return self._main.get_link_to_first_reference()
+        except Exception as err:
+            on_error(self._vim, err)
 
 
 
