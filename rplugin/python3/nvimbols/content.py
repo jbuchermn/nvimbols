@@ -51,8 +51,9 @@ class Content:
 
             for line in range(start_line, end_line + 1):
                 d = copy.copy(data)
-                d.line, d.start_col, d.end_col = line, start_col if line == start_line else 0, end_col if line == end_line else -1
-                self._components.append(d)
+                d.line, d.start_col, d.end_col = line, start_col if line == start_line else 1, end_col if line == end_line else -1
+                if(d.start_col != d.end_col):
+                    self._components.append(d)
 
             data.end_position = len(self._raw)
         else:

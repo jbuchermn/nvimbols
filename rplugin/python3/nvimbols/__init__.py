@@ -63,8 +63,6 @@ class NVimbolsPlugin(object):
         if(self._main is None):
             return
 
-        log('[UPDATE_LOCATION]')
-
         try:
             buf = self._vim.current.buffer
             filename = buf.name
@@ -81,8 +79,6 @@ class NVimbolsPlugin(object):
     def render(self, args):
         if(self._main is None):
             return
-
-        log('[RENDER]')
 
         try:
             window_number = args[0]['window_number']
@@ -101,10 +97,11 @@ class NVimbolsPlugin(object):
         except Exception as err:
             on_error(self._vim, err)
 
-    @neovim.function('_nvimbols_get_link_to_first_reference', sync=True)
-    def get_link(self, args):
+    @neovim.function('_nvimbols_get_first_reference', sync=True)
+    def get_link_to_first_reference(self, args):
         try:
-            return self._main.get_link_to_first_reference()
+            reference_name = args[0]
+            return self._main.get_first_reference(reference_name)
         except Exception as err:
             on_error(self._vim, err)
 

@@ -80,8 +80,8 @@ function! nvimbols#follow_link() abort
     call cursor(t_line, t_col)
 endfunction
 
-function! nvimbols#follow_link_to_first_reference() abort
-    let result = _nvimbols_get_link_to_first_reference()
+function! nvimbols#follow_first_reference(reference_name) abort
+    let result = _nvimbols_get_first_reference(a:reference_name)
     if result==""
         return
     endif

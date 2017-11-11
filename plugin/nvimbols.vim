@@ -52,7 +52,6 @@ endif
 "
 
 command! NVimbolsToggle :call nvimbols#toggle_window()
-command! NVimbolsFollow :call nvimbols#follow_link_to_first_reference()
 
 "
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -63,5 +62,7 @@ if(!exists('g:nvimbols_default_bindings'))
 endif
 
 if(g:nvimbols_default_bindings)
-    nnoremap <silent> <leader>sf :NVimbolsFollow<CR>
+    nnoremap <silent> <leader>sf :call nvimbols#follow_first_reference("references")<CR>
+    nnoremap <silent> <leader>sp :call nvimbols#follow_first_reference("is_child_of")<CR>
+    nnoremap <silent> <leader>sb :call nvimbols#follow_first_reference("inherits_from")<CR>
 endif
