@@ -44,7 +44,8 @@ def import_plugin(path, source, classname):
 
 
 def error(vim, expr):
-    vim.session.threadsafe_call(lambda: vim.command("echom(\"[nvimbols] %s \")" % str(expr).replace("\"", "\\\"")))
+    if vim is not None:
+        vim.session.threadsafe_call(lambda: vim.command("echom(\"[nvimbols] %s \")" % str(expr).replace("\"", "\\\"")))
     log("[error] %s" % str(expr))
 
 
@@ -54,6 +55,16 @@ def on_error(vim, err):
     error(vim, '%s.  Use :messages for error details.' % str(err))
 
 
+def on_error_wrap(vim, func):
+    def wrapped():
+        try:
+            func()
+        except Exception as err:
+            on_error(vim, err)
+    return wrapped
+
+
 def log(msg):
     with open('/tmp/pylog', 'a') as f:
         f.write(str(msg) + "\n")
+

@@ -9,10 +9,36 @@ class Component:
         self.end_col = 0
         self.children = children
 
+    def __eq__(self, other):
+        if other is None:
+            return False
+        
+        return (
+            self.line == other.line and
+            self.start_col == other.start_col and
+            self.end_col == other.end_col and
+            self.children == other.children
+        )
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
 
 class Wrapper(Component):
     def __init__(self, *args):
         Component.__init__(self, args)
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+
+        if not isinstance(other, Wrapper) or not Component.__eq__(self, other):
+            return False
+
+        return True
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
 class Link(Component):
@@ -20,11 +46,35 @@ class Link(Component):
         Component.__init__(self, [child])
         self.target = target
 
+    def __eq__(self, other):
+        if other is None:
+            return False
+
+        if not isinstance(other, Link) or not Component.__eq__(self, other):
+            return False
+
+        return self.target == other.target
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
 
 class Highlight(Component):
     def __init__(self, name, child):
         Component.__init__(self, [child])
         self.name = name
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+
+        if not isinstance(other, Highlight) or not Component.__eq__(self, other):
+            return False
+
+        return self.name == other.name
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
 class Content:
@@ -73,3 +123,17 @@ class Content:
         for c in self._components:
             if(isinstance(c, Link)):
                 yield c
+
+    def __eq__(self, other):
+        if other is None:
+            return False
+
+        return self._raw == other._raw and self._components == other._components
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+
+
+
+

@@ -47,18 +47,6 @@ function! nvimbols#update_location()
     call _nvimbols_update_location(line, col)
 endfunction
 
-function! nvimbols#render_if_open()
-    let winnr = nvimbols#window_number()
-    if winnr!=-1
-        call _nvimbols_render({
-                    \ 'window_number': winnr
-                    \ })
-    endif
-endfunction
-
-function! nvimbols#update_symbol() abort
-    call nvimbols#render_if_open()
-endfunction
 
 function! nvimbols#follow_link() abort
     if winnr() != nvimbols#window_number()
@@ -90,7 +78,6 @@ function! nvimbols#follow_first_reference(reference_name) abort
     let t_line = split(result,":")[1]
     let t_col = split(result,":")[2]
 
-    execute 'wincmd p'
     execute 'edit ' . t_filename
     call cursor(t_line, t_col)
 endfunction
@@ -135,7 +122,7 @@ function! nvimbols#open_window() abort
     silent %delete _
     setlocal nomodifiable
 
-    call nvimbols#render_if_open()
+    call _nvimbols_render()
 
     " Switch back
     " execute 'wincmd p'
@@ -157,5 +144,9 @@ function! nvimbols#toggle_window() abort
     else
         call nvimbols#open_window()
     endif
+endfunction
+
+function! nvimbols#clear() abort
+    call _nvimbols_clear()
 endfunction
 

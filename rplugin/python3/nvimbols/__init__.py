@@ -75,15 +75,23 @@ class NVimbolsPlugin(object):
         except Exception as err:
             on_error(self._vim, err)
 
+    @neovim.function('_nvimbols_clear')
+    def clear(self, args):
+        if(self._main is None):
+            return
+
+        try:
+            self._main.clear()
+        except Exception as err:
+            on_error(self._vim, err)
+
     @neovim.function('_nvimbols_render')
     def render(self, args):
         if(self._main is None):
             return
 
         try:
-            window_number = args[0]['window_number']
-            buf = self._vim.windows[window_number - 1].buffer
-            self._main.render(buf)
+            self._main.render()
         except Exception as err:
             on_error(self._vim, err)
 

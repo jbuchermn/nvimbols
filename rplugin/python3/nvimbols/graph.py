@@ -1,32 +1,77 @@
+from nvimbols.symbol import SymbolLocation
+from nvimbols.util import log, on_error_wrap
+from threading import Lock, Thread
+
+
 class SymbolsGraph:
-    def __init__(self, source):
-        self._source = source
+    def __init__(self, source, parent):
         self.references = source.references
+        self._source = source
+        self._parent = parent
 
-    def symbol_at_location(self, location):
-        """
-        Possibly long running method to acquire all information needed for a symbol
-        on whose location the cursor currently is
-        """
-        symbol = self._source.symbol_at_location(location)
-        if(symbol is None):
-            return symbol
+        self._lock = Lock()
+        self._locations = []
 
-        for r in self.references:
-            if not r.name in symbol.target_of:
-                symbol.target_of[r.name] = []
-                for source in self._source.load_target_of(symbol, r):
-                    symbol.target_of[r.name] += [source]
+    def get_location(self, location):
+        for loc in self._locations:
+            if(loc.contains(location)):
+                return loc
 
-            if not r.name in symbol.source_of:
-                symbol.source_of[r.name] = []
-                for target in self._source.load_source_of(symbol, r):
-                    symbol.source_of[r.name] += [target]
+        return None
 
-        """
-        ToDo: Store symbols in cache (self._symbols)
-        Sources should be allowed to create new symbols in load_source_of (further than one node away from symbol),
-        so here we should go through the graph and check for new symbols
-        """
+    def clear(self):
+        self._locations = []
 
-        return symbol
+    def require_symbol(self, location):
+        for loc in self._locations:
+            if(loc.contains(location)):
+                return
+
+        location = SymbolLocation(location.filename, location.start_line, location.start_col, location.end_line, location.end_col)
+        self._locations += [location]
+        Thread(target=on_error_wrap(None, lambda: self._require_symbol(location))).start()
+
+    def _require_symbol(self, location):
+        if not (not location.symbol.is_loading() and location.symbol.data_set()):
+            self._source.load_symbol(location)
+            self._parent.render()
+
+        symbol = location.symbol.get()
+        if symbol is not None:
+            for r in self.references:
+                if not symbol.target_of_set(r):
+                    self._source.load_target_of(symbol, r)
+                    for i in range(len(symbol.get_target_of(r))):
+                        loc = self.get_location(symbol.get_target_of(r)[i])
+                        if loc is not None:
+                            symbol.get_target_of(r)[i] = loc
+
+                if not symbol.source_of_set(r):
+                    self._source.load_source_of(symbol, r)
+                    for i in range(len(symbol.get_source_of(r))):
+                        loc = self.get_location(symbol.get_source_of(r)[i])
+                        if loc is not None:
+                            symbol.get_source_of(r)[i] = loc
+
+            self._parent.render()
+
+    def log_summary(self):
+        for loc in self._locations:
+            log("%s: %s" % (loc, loc.symbol.get().name if loc.symbol.get() is not None else "None"))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
