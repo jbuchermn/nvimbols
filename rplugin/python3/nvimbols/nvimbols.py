@@ -19,6 +19,7 @@ def setup_nvimbols_help():
     content += Wrapper("\n ", Highlight('PreProc', "<leader>sF"), ": Follow target in split")
     content += Wrapper("\n ", Highlight('PreProc', "<leader>sP"), ": Follow parent in split")
     content += Wrapper("\n ", Highlight('PreProc', "<leader>sB"), ": Follow base in split")
+    content += Wrapper("\n ", Highlight('PreProc', "<leader>sj"), ": Open Denite")
 
     return content
 
@@ -56,6 +57,9 @@ class NVimbols:
         if force_put or self._current_content != content:
             self._parent.put_content(content)
         self._current_content = content
+
+    def get_current_location(self):
+        return self._graph.get_location(self._current_location)
 
     def update_location(self, location):
         self._current_location = location

@@ -7,7 +7,7 @@ from nvimbols.content import Content, Wrapper, Highlight
 from nvimbols.util import find_rplugins, import_plugin, on_error, log
 from nvimbols.nvimbols import NVimbols
 from nvimbols.symbol import SymbolLocation
-
+from nvimbols.communicator import COMM
 
 @neovim.plugin
 class NVimbolsPlugin(object):
@@ -20,6 +20,9 @@ class NVimbolsPlugin(object):
         self._put_content_lock = Lock()
 
         self._content_if_deactivated = Content()
+
+        COMM.set('NVimbolsPlugin', self)
+
 
     def _dispatch(self, func, *args, **kwargs):
         def wrapped():
@@ -67,7 +70,7 @@ class NVimbolsPlugin(object):
         self._config = args[0]
         ft = args[1]
 
-        if(ft == "nvimbols"):
+        if(ft == "nvimbols" or ft == "denite"):
             return
 
         """
@@ -128,6 +131,8 @@ class NVimbolsPlugin(object):
             log("  <> no source selected, deactivating")
             self.put_content()
             self._main = None
+
+        COMM.set('NVimbols', self._main)
 
     def _update_location(self, args):
         if(self._main is None):

@@ -25,14 +25,14 @@ class Component:
 
 
 class Wrapper(Component):
-    def __init__(self, *args):
-        Component.__init__(self, args)
+    def __init__(self, *children):
+        super().__init__(children)
 
     def __eq__(self, other):
         if other is None:
             return False
 
-        if not isinstance(other, Wrapper) or not Component.__eq__(self, other):
+        if not isinstance(other, Wrapper) or not super().__eq__(other):
             return False
 
         return True
@@ -42,15 +42,15 @@ class Wrapper(Component):
 
 
 class Link(Component):
-    def __init__(self, target, child):
-        Component.__init__(self, [child])
+    def __init__(self, target, *children):
+        super().__init__(children)
         self.target = target
 
     def __eq__(self, other):
         if other is None:
             return False
 
-        if not isinstance(other, Link) or not Component.__eq__(self, other):
+        if not isinstance(other, Link) or not super().__eq__(other):
             return False
 
         return self.target == other.target
@@ -60,15 +60,15 @@ class Link(Component):
 
 
 class Highlight(Component):
-    def __init__(self, name, child):
-        Component.__init__(self, [child])
+    def __init__(self, name, *children):
+        super().__init__(children)
         self.name = name
 
     def __eq__(self, other):
         if other is None:
             return False
 
-        if not isinstance(other, Highlight) or not Component.__eq__(self, other):
+        if not isinstance(other, Highlight) or not super().__eq__(other):
             return False
 
         return self.name == other.name
