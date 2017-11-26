@@ -28,6 +28,9 @@ function! nvimbols#update_location()
     " CursorMoved appears buggy (or somehow reacting to python render events..)
     " Not very nice fix here..
     "
+    if !exists('s:LastFilename')
+        let s:LastFilename = ""
+    endif
     if !exists('s:LastLine')
         let s:LastLine=-1
     endif
@@ -35,16 +38,18 @@ function! nvimbols#update_location()
         let s:LastCol=-1
     endif
 
+    let filename = expand('%:p')
     let [line, col] = getpos('.')[1:2]
 
-    if line==s:LastLine && col==s:LastCol
+    if filename==s:LastFilename && line==s:LastLine && col==s:LastCol
         return
     endif
 
+    let s:LastFilename = filename
     let s:LastLine = line
     let s:LastCol = col
 
-    call _nvimbols_update_location(line, col)
+    call _nvimbols_update_location(filename, line, col)
 endfunction
 
 
@@ -122,7 +127,8 @@ function! nvimbols#open_window() abort
     silent %delete _
     setlocal nomodifiable
 
-    call _nvimbols_render()
+    " Force redraw
+    call _nvimbols_render(1)
 
     " Switch back
     " execute 'wincmd p'
@@ -132,7 +138,7 @@ function! nvimbols#close_window() abort
     let winnr = nvimbols#window_number()
     if winnr != -1
         execute winnr . 'wincmd w'
-        close
+        bwipeout
     endif
 
 endfunction
