@@ -1,8 +1,26 @@
 import os
 
+from nvimbols.content import Content, Wrapper, Highlight
 from nvimbols.util import log, on_error
 from nvimbols.graph import SymbolsGraph
 
+def setup_nvimbols_help():
+    content = Content()
+    content += Highlight('Title', "NVimbols Help")
+    content += "\nShortcuts:"
+    content += Wrapper("\n ", Highlight('PreProc', "f"), ": Follow symbol")
+    content += Wrapper("\n ", Highlight('PreProc', "v"), ": Follow symbol in split")
+    content += Wrapper("\n ", Highlight('PreProc', "o"), ": Switch mode")
+    content += Wrapper("\n ", Highlight('PreProc', "?"), ": Close help")
+    content += "\n\nDefault keymappings:"
+    content += Wrapper("\n ", Highlight('PreProc', "<leader>sf"), ": Follow target")
+    content += Wrapper("\n ", Highlight('PreProc', "<leader>sp"), ": Follow parent")
+    content += Wrapper("\n ", Highlight('PreProc', "<leader>sb"), ": Follow base")
+    content += Wrapper("\n ", Highlight('PreProc', "<leader>sF"), ": Follow target in split")
+    content += Wrapper("\n ", Highlight('PreProc', "<leader>sP"), ": Follow parent in split")
+    content += Wrapper("\n ", Highlight('PreProc', "<leader>sB"), ": Follow base in split")
+
+    return content
 
 class NVimbols:
     def __init__(self, parent, source):
@@ -14,15 +32,30 @@ class NVimbols:
         self._current_location = None
         self._current_content = None
 
+        self._help_content = setup_nvimbols_help()
+
+        """
+        'symbol': Display info about the symbol, the cursor is on
+        'help': Display help
+        'list': List symbols in file
+
+        Implemented as stack
+        """
+        self._mode = ['symbol']
+
     def render(self, force_put=False):
-        content = self._source.render_location(self._graph.get_location(self._current_location))
+        content = Content()
+        if self._mode[0] == 'symbol':
+            content = self._source.render_location(self._graph.get_location(self._current_location))
+        elif self._mode[0] == 'help':
+            content = self._help_content
+        elif self._mode[0] == 'list':
+            # TODO
+            content = Content()
+
         if force_put or self._current_content != content:
             self._parent.put_content(content)
         self._current_content = content
-
-    def clear(self):
-        self._graph.clear()
-        self.update_location(self._current_location)
 
     def update_location(self, location):
         self._current_location = location
@@ -54,6 +87,28 @@ class NVimbols:
                 return str(symbol.get_source_of(r)[0]) if len(symbol.get_source_of(r)) > 0 else ""
 
         return ""
+
+    def command(self, command):
+        if command == 'clear':
+            self._graph.clear()
+            self.update_location(self._current_location)
+        elif command == 'help':
+            if self._mode[0] == 'help':
+                del self._mode[0]
+            else:
+                self._mode = ['help'] + self._mode
+
+            self.render(True)
+        elif command == 'switch_mode':
+            if self._mode[0] == 'help':
+                return
+
+            if self._mode[0] == 'symbol':
+                self._mode = ['list'] + self._mode
+            else:
+                self._mode = ['symbol'] + self._mode
+
+            self.render(True)
 
 
 

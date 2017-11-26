@@ -1,22 +1,10 @@
-
-function! nvimbols#window_name()
-    return "nvimbols"
-endfunction
-
-function! nvimbols#window_number()
-    let name = nvimbols#window_name()
-    return bufwinnr('^' . name . '$')
-endfunction
-
+" Python interface {{{
 function! nvimbols#init_config()
-    if winnr() == nvimbols#window_number()
-        return
-    endif
-
     call _nvimbols_init({
-                \ 'ft' : &ft,
-                \ 'rtp' : &runtimepath
-                \ })
+                \   'nvimbols_window_name': g:nvimbols_window_name,
+                \   'rtp': &runtimepath
+                \ }, 
+                \ &filetype)
 endfunction
 
 function! nvimbols#update_location()
@@ -52,46 +40,20 @@ function! nvimbols#update_location()
     call _nvimbols_update_location(filename, line, col)
 endfunction
 
-
-function! nvimbols#follow_link() abort
-    if winnr() != nvimbols#window_number()
-        return
-    endif
-
-    let [line, col] = getpos('.')[1:2]
-    let result = _nvimbols_get_link(line, col)
-    if result==""
-        return
-    endif
-
-    let t_filename = split(result,":")[0]
-    let t_line = split(result,":")[1]
-    let t_col = split(result,":")[2]
-
-    execute 'wincmd p'
-    execute 'edit ' . t_filename
-    call cursor(t_line, t_col)
+function! nvimbols#command(command) abort
+    call _nvimbols_command(a:command)
 endfunction
+" }}}
 
-function! nvimbols#follow_first_reference(reference_name) abort
-    let result = _nvimbols_get_first_reference(a:reference_name)
-    if result==""
-        return
-    endif
-
-    let t_filename = split(result,":")[0]
-    let t_line = split(result,":")[1]
-    let t_col = split(result,":")[2]
-
-    execute 'edit ' . t_filename
-    call cursor(t_line, t_col)
+" Window management {{{
+function! nvimbols#window_number()
+    return bufwinnr('^' . g:nvimbols_window_name . '$')
 endfunction
-
 
 function! nvimbols#open_window() abort
     " 'Borrowed' from Vim Tagbar
 
-    let window_name = nvimbols#window_name()
+    let window_name = g:nvimbols_window_name
     let pos = 'botright '
     let width = 50
 
@@ -151,8 +113,68 @@ function! nvimbols#toggle_window() abort
         call nvimbols#open_window()
     endif
 endfunction
+" }}}
 
-function! nvimbols#clear() abort
-    call _nvimbols_clear()
+" Jump around {{{
+function! nvimbols#follow_link(split) abort
+    if winnr() != nvimbols#window_number()
+        return
+    endif
+
+    let [line, col] = getpos('.')[1:2]
+    let result = _nvimbols_get_link(line, col)
+    if result==""
+        return
+    endif
+
+    let t_filename = split(result,":")[0]
+    let t_line = split(result,":")[1]
+    let t_col = split(result,":")[2]
+
+    execute 'wincmd p'
+    if a:split == 'v'
+        execute 'vnew ' . t_filename
+    else
+        execute 'edit ' . t_filename
+    endif
+    call cursor(t_line, t_col)
 endfunction
+
+function! nvimbols#follow_first_reference(reference_name, split) abort
+    let result = _nvimbols_get_first_reference(a:reference_name)
+    if result==""
+        return
+    endif
+
+    let t_filename = split(result,":")[0]
+    let t_line = split(result,":")[1]
+    let t_col = split(result,":")[2]
+
+    if a:split == 'v'
+        execute 'vnew ' . t_filename
+    else
+        execute 'edit ' . t_filename
+    endif
+    call cursor(t_line, t_col)
+endfunction
+" }}}
+
+" Auto-Commands {{{
+function! nvimbols#filetype() abort
+    call nvimbols#init_config()
+endfunction
+
+function! nvimbols#bufenter() abort
+    call nvimbols#update_location()
+endfunction
+
+function! nvimbols#insertleave() abort
+    call nvimbols#update_location()
+endfunction
+
+function! nvimbols#cursormoved() abort
+    call nvimbols#update_location()
+endfunction
+" }}}
+
 

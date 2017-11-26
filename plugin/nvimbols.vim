@@ -1,70 +1,76 @@
-"
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-" Guard
-"
-
+" Guard {{{
 if exists('g:nvimbols_loaded') || &compatible
     finish
 endif
 let g:nvimbols_loaded = 1
+" }}}
 
-"
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-" Disable NVimbols completely by adding
-"   let g:nvimbols_enabled = 0
-" to your init.vim
-"
+" Configuration {{{
 
+" Disable completely
 if(!exists('g:nvimbols_enabled'))
     let g:nvimbols_enabled = 1
 endif
 
-
-"
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-" Initialization
-" Inform python plugin, where we are
-"
-
 if(g:nvimbols_enabled)
-    augroup nvimbols_init
-        autocmd!
-        autocmd BufEnter * :call nvimbols#init_config()
-    augroup end
+    " Default bindings: <leader>s
+    if(!exists('g:nvimbols_default_bindings'))
+        let g:nvimbols_default_bindings = 1
+    endif
+
+    " Window name to be used for bar
+    if(!exists('g:nvimbols_window_name'))
+        let g:nvimbols_window_name = "nvimbols"
+    endif
+
+endif
+
+" }}}
+
+" Auto-Commands {{{
+if(g:nvimbols_enabled)
     augroup nvimbols_root
         autocmd!
-        autocmd BufEnter * :call nvimbols#update_location()
-        autocmd InsertLeave * :call nvimbols#update_location()
-        autocmd CursorMoved * :call nvimbols#update_location()
+        autocmd BufEnter * :call nvimbols#bufenter()
+        autocmd Filetype * :call nvimbols#filetype()
+        autocmd InsertLeave * :call nvimbols#insertleave()
+        autocmd CursorMoved * :call nvimbols#cursormoved()
     augroup end
 else
-    augroup nvimbols_init
-        autocmd!
-    augroup end
     augroup nvimbols_root
         autocmd!
     augroup end
 endif
+" }}}
 
-"
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-" Bar
-"
-
-command! NVimbolsToggle :call nvimbols#toggle_window()
-command! NVimbolsClear :call nvimbols#clear()
-
-"
-""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-" Default bindings: <leader>s
-"
-if(!exists('g:nvimbols_default_bindings'))
-    let g:nvimbols_default_bindings = 1
+" Commands {{{
+if(g:nvimbols_enabled)
+    " General commands
+    command! NVimbolsToggle :call nvimbols#toggle_window()
+    command! NVimbolsClear :call nvimbols#command('clear')
+    command! NVimbolsHelp :call nvimbols#command('help')
+    command! NVimbolsSwitch :call nvimbols#command('switch_mode')
+    " Commands when cursor is on symbol
+    command! NVimbolsFollowTarget :call nvimbols#follow_first_reference("references", '')
+    command! NVimbolsFollowParent :call nvimbols#follow_first_reference("is_child_of", '')
+    command! NVimbolsFollowBase :call nvimbols#follow_first_reference("inherits_from", '')
+    command! NVimbolsFollowTargetVertical :call nvimbols#follow_first_reference("references", 'v')
+    command! NVimbolsFollowParentVertical :call nvimbols#follow_first_reference("is_child_of", 'v')
+    command! NVimbolsFollowBaseVertical :call nvimbols#follow_first_reference("inherits_from", 'v')
+    " Commands when cursor is in NVimbols window
+    command! NVimbolsFollow :call nvimbols#follow_link('')
+    command! NVimbolsFollowVertical :call nvimbols#follow_link('v')
 endif
+" }}}
 
-if(g:nvimbols_default_bindings)
+" Key-Bindings {{{
+if(g:nvimbols_enabled && g:nvimbols_default_bindings)
     nnoremap <silent> <leader>sc :NVimbolsClear<CR>
-    nnoremap <silent> <leader>sf :call nvimbols#follow_first_reference("references")<CR>
-    nnoremap <silent> <leader>sp :call nvimbols#follow_first_reference("is_child_of")<CR>
-    nnoremap <silent> <leader>sb :call nvimbols#follow_first_reference("inherits_from")<CR>
+    nnoremap <silent> <leader>sf :NVimbolsFollowTarget<CR>
+    nnoremap <silent> <leader>sp :NVimbolsFollowParent<CR>
+    nnoremap <silent> <leader>sb :NVimbolsFollowBase<CR>
+    nnoremap <silent> <leader>sF :NVimbolsFollowTargetVertical<CR>
+    nnoremap <silent> <leader>sP :NVimbolsFollowParentVertical<CR>
+    nnoremap <silent> <leader>sB :NVimbolsFollowBaseVertical<CR>
 endif
+" }}}

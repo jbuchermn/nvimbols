@@ -13,6 +13,7 @@ from nvimbols.symbol import SymbolLocation
 class NVimbolsPlugin(object):
     def __init__(self, vim):
         self._vim = vim
+        self._config = {}
         self._main = None
         self._sources = None
         self._lock = Lock()
@@ -41,9 +42,8 @@ class NVimbolsPlugin(object):
             if self._put_content_lock.acquire(False):
                 try:
                     buf = None
-                    window_name = self._vim.call("nvimbols#window_name")
                     for b in self._vim.buffers:
-                        if b.name.endswith(window_name):
+                        if b.name.endswith(self._config['nvimbols_window_name']):
                             buf = b
                             break
 
@@ -64,8 +64,11 @@ class NVimbolsPlugin(object):
         self._vim.session.threadsafe_call(action, content)
 
     def _init(self, args):
-        rtp = args[0]['rtp']
-        ft = args[0]['ft']
+        self._config = args[0]
+        ft = args[1]
+
+        if(ft == "nvimbols"):
+            return
 
         """
         Initialise sources
@@ -74,7 +77,7 @@ class NVimbolsPlugin(object):
             log("Initialising NVimbols sources...")
             self._sources = {}
 
-            for path in find_rplugins(rtp):
+            for path in find_rplugins(self._config['rtp']):
                 name = os.path.splitext(os.path.basename(path))[0]
                 source = None
                 try:
@@ -134,29 +137,21 @@ class NVimbolsPlugin(object):
         line = args[1]
         col = args[2]
 
-        log("UPDATE: %s %i %i" % (filename, line, col))
-
         location = SymbolLocation(filename, line, col)
         self._main.update_location(location)
-
-    def _clear(self, args):
-        if(self._main is None):
-            return
-
-        try:
-            self._main.clear()
-        except Exception as err:
-            on_error(self._vim, err)
 
     def _render(self, args):
         if(self._main is None):
             self.put_content()
             return
 
-        try:
-            self._main.render(args[0]!=0 if len(args)>0 else False)
-        except Exception as err:
-            on_error(self._vim, err)
+        self._main.render(args[0] != 0 if len(args) > 0 else False)
+
+    def _command(self, args):
+        if(self._main is None):
+            return
+
+        self._main.command(args[0])
 
     """
     Public interface
@@ -173,13 +168,13 @@ class NVimbolsPlugin(object):
     def update_location(self, args):
         self._dispatch(NVimbolsPlugin._update_location, self, args)
 
-    @neovim.function('_nvimbols_clear')
-    def clear(self, args):
-        self._dispatch(NVimbolsPlugin._clear, self, args)
-
     @neovim.function('_nvimbols_render')
     def render(self, args):
         self._dispatch(NVimbolsPlugin._render, self, args)
+
+    @neovim.function('_nvimbols_command')
+    def command(self, args):
+        self._dispatch(NVimbolsPlugin._command, self, args)
 
     @neovim.function('_nvimbols_get_link', sync=True)
     def get_link(self, args):
