@@ -21,7 +21,8 @@ def setup_nvimbols_help():
     content += Wrapper("\n ", Highlight('PreProc', "<leader>sF"), ": Follow target in split")
     content += Wrapper("\n ", Highlight('PreProc', "<leader>sP"), ": Follow parent in split")
     content += Wrapper("\n ", Highlight('PreProc', "<leader>sB"), ": Follow base in split")
-    content += Wrapper("\n ", Highlight('PreProc', "<leader>sj"), ": Open Denite")
+    content += Wrapper("\n ", Highlight('PreProc', "<leader>sj"), ": Open Denite in symbol-mode")
+    content += Wrapper("\n ", Highlight('PreProc', "<leader>sa"), ": Open Denite in list-mode")
 
     return content
 
@@ -67,6 +68,14 @@ class NVimbols:
         if force_put or self._current_content != content:
             self._parent.put_content(content)
         self._current_content = content
+
+    def render_denite(self, context, mode):
+        context['is_async'] = False
+        if mode == 'symbol':
+            return self._source.render_denite(self._graph.get(self._current_location), context)
+        elif mode == 'list':
+            # TODO
+            return []
 
     def get_at_current_location(self):
         return self._graph.get(self._current_location)

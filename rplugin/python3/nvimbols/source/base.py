@@ -75,8 +75,9 @@ class Base:
 
     def render(self, wrapper):
         """
-        Override this method to implement custom rendering
+        Method returns a Content instance
 
+        Override this method to implement custom rendering.
         Data not yet fetched can be request()ed; once it is loaded, render will be called again.
         """
         content = Content()
@@ -122,3 +123,59 @@ class Base:
                             content += Highlight('PreProc', "[...]\n")
 
         return content
+
+    def render_denite(self, wrapper, context):
+        """
+        Method returns denite candidates as list.
+
+        Override this method to implement custom rendering.
+        If rendering is not complete, set context['is_async'] = True. When this method is called, context['is_async'] == False holds.
+        """
+        result = []
+
+        def wrapper_to_candidate(wrapper, title):
+            return {
+                'abbr': title + ' ' + str(wrapper.location),
+                'word': str(wrapper.location),
+                'action__path': wrapper.location.filename,
+                'action__line': wrapper.location.start_line,
+                'action__col': wrapper.location.start_col,
+                'action__text': str(wrapper.location),
+                '__nvimbols_hash': str(wrapper.location)
+            }
+
+        def add_to_result(result, wrapper, title):
+            cand = wrapper_to_candidate(wrapper, title)
+            for c in context['all_candidates']:
+                if c['__nvimbols_hash'] == str(wrapper.location):
+                    return
+
+            result += [cand]
+
+        for ref in self.references:
+            source_of = wrapper.source_of[ref.name]
+            if(not source_of.is_loaded()):
+                context['is_async'] = True
+            else:
+                for w in source_of.get():
+                    add_to_result(result, w, ref.display_targets)
+
+            target_of = wrapper.target_of[ref.name]
+            if(not target_of.is_loaded()):
+                context['is_async'] = True
+            else:
+                for w in target_of.get():
+                    add_to_result(result, w, ref.display_sources)
+
+        return result
+
+
+
+
+
+
+
+
+
+
+

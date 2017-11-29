@@ -72,6 +72,7 @@ if(g:nvimbols_enabled && g:nvimbols_default_bindings)
     nnoremap <silent> <leader>sF :NVimbolsFollowTargetVertical<CR>
     nnoremap <silent> <leader>sP :NVimbolsFollowParentVertical<CR>
     nnoremap <silent> <leader>sB :NVimbolsFollowBaseVertical<CR>
-    nnoremap <silent> <leader>sj :Denite nvimbols<CR>
+    nnoremap <silent> <leader>sj :Denite nvimbols_symbol<CR>
+    nnoremap <silent> <leader>sa :Denite nvimbols_list<CR>
 endif
 " }}}

@@ -29,14 +29,14 @@ class SymbolLocation:
     def __repr__(self):
         return self.__str__()
 
+    def __hash__(self):
+        return hash(self.__repr__())
+
     def __eq__(self, other):
-        return (
-            self.filename == other.filename and
-            self.start_line == other.start_line and
-            self.end_line == other.end_line and
-            self.start_col == other.start_col and
-            self.end_col == other.end_col
-        )
+        return self.__hash__() == other.__hash__()
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 
 class Symbol:

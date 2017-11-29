@@ -45,6 +45,9 @@ class JobQueue:
                 return job
 
     def _dispatch(self):
+        if self.is_empty():
+            return
+
         with self._lock:
             while self._running_jobs < self._tasks:
                 if self._threadsafe:

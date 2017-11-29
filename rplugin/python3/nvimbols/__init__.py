@@ -28,8 +28,6 @@ class NVimbolsPlugin(object):
         self._put_content_queue = JobQueue(1, self._vim, True)
         self._content = None
 
-        COMM.set('NVimbolsPlugin', self)
-
     def _dispatch(self, func, *args, **kwargs):
         def wrapped():
             with self._lock:
