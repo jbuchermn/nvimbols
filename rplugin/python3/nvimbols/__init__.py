@@ -4,6 +4,7 @@ import time
 from threading import Lock, Thread, Timer
 
 from nvimbols.content import Content, Wrapper, Highlight
+from nvimbols.job_queue import JobQueue
 from nvimbols.util import find_rplugins, import_plugin, on_error, log
 from nvimbols.nvimbols import NVimbols
 from nvimbols.symbol import SymbolLocation
@@ -17,12 +18,17 @@ class NVimbolsPlugin(object):
         self._main = None
         self._sources = None
         self._lock = Lock()
-        self._put_content_lock = Lock()
 
         self._content_if_deactivated = Content()
 
-        COMM.set('NVimbolsPlugin', self)
+        """
+        Needs a rewrite... something like synchronized queue...
+        """
+        self._put_content_lock = Lock()
+        self._put_content_queue = JobQueue(1, self._vim, True)
+        self._content = None
 
+        COMM.set('NVimbolsPlugin', self)
 
     def _dispatch(self, func, *args, **kwargs):
         def wrapped():
@@ -34,37 +40,39 @@ class NVimbolsPlugin(object):
 
         Thread(target=wrapped).start()
 
+    def _put_content(self):
+        """
+        Do not lock inside threadsafe_call. This causes deadlocks
+        """
+        if self._put_content_lock.acquire(False):
+            try:
+                buf = None
+                for b in self._vim.buffers:
+                    if b.name.endswith(self._config['nvimbols_window_name']):
+                        buf = b
+                        break
+
+                if buf is not None:
+                    buf.api.set_option('modifiable', True)
+
+                    buf[:] = self._content.raw()
+                    for highlight in self._content.highlights():
+                        buf.add_highlight(highlight.name, highlight.line - 1, highlight.start_col - 1, highlight.end_col - 1 if highlight.end_col >= 1 else -1, -1)
+
+                    buf.api.set_option('modifiable', False)
+
+            finally:
+                self._put_content_lock.release()
+        else:
+            return True
+
     def put_content(self, content=None):
-        def action(content):
-            if content is None or self._main is None:
-                content = self._content_if_deactivated
+        self._content = content
+        if self._content is None:
+            self._content = self._content_if_deactivated
 
-            """
-            Do not lock inside threadsafe_call. This causes deadlocks
-            """
-            if self._put_content_lock.acquire(False):
-                try:
-                    buf = None
-                    for b in self._vim.buffers:
-                        if b.name.endswith(self._config['nvimbols_window_name']):
-                            buf = b
-                            break
-
-                    if buf is not None:
-                        buf.api.set_option('modifiable', True)
-
-                        buf[:] = content.raw()
-                        for highlight in content.highlights():
-                            buf.add_highlight(highlight.name, highlight.line - 1, highlight.start_col - 1, highlight.end_col - 1 if highlight.end_col >= 1 else -1, -1)
-
-                        buf.api.set_option('modifiable', False)
-
-                finally:
-                    self._put_content_lock.release()
-            else:
-                Timer(.5, NVimbolsPlugin.put_content, args=[self, content]).start()
-
-        self._vim.session.threadsafe_call(action, content)
+        if self._put_content_queue.is_empty():
+            self._put_content_queue.job(lambda: self._put_content())
 
     def _init(self, args):
         self._config = args[0]

@@ -1,43 +1,3 @@
-class LoadWrapper:
-    def __init__(self, location):
-        self._loaded = False
-        self._content = None
-        self._location = location
-
-    def is_loading(self):
-        return not self._loaded
-
-    def get(self):
-        return self._content
-
-    def set(self, content):
-        self._content = content
-        self._loaded = True
-        if self._content is not None:
-            self._content.location = self._location
-
-
-class LoadListWrapper(list):
-    def __init__(self):
-        self._loaded = False
-        self._incomplete = False
-
-    def reset(self):
-        self._loaded = False
-        self._incomplete = False
-        del self[:]
-
-    def is_loading(self):
-        return not self._loaded
-
-    def is_incomplete(self):
-        return self._incomplete
-
-    def loaded(self, incomplete=False):
-        self._incomplete = incomplete
-        self._loaded = True
-
-
 class SymbolLocation:
     """
     Includes lines start_line... end_line and columns start_col... end_col-1
@@ -53,8 +13,6 @@ class SymbolLocation:
         self.end_line = end_line
         self.start_col = start_col
         self.end_col = end_col
-
-        self.symbol = LoadWrapper(self)
 
     def contains(self, other):
         if(self.filename != other.filename):
@@ -82,43 +40,20 @@ class SymbolLocation:
 
 
 class Symbol:
-    def __init__(self):
+    """
+    Meant to be subclassed within the specific source, plain old data object.
+    """
+    def __init__(self, name, kind):
+        self.name = name
+        self.kind = kind
+
         """
-        Data to be set once the information (without references) for this symbol is retrieved
+        Dictionary rendered as Key: Value
         """
-        self.name = None
         self.data = {}
 
-        """
-        Data to be set once the references are retrieved
-        Maps from reference.name to a LoadListWrapper of symbol locations
-        """
-        self._target_of = {}
-        self._source_of = {}
-
-    def data_set(self):
-        return self.name is not None
-
-    def target_of_set(self, reference):
-        return not self.get_target_of(reference).is_loading()
-
-    def source_of_set(self, reference):
-        return not self.get_source_of(reference).is_loading()
-
-    def get_target_of(self, reference):
-        if reference.name not in self._target_of:
-            self._target_of[reference.name] = LoadListWrapper()
-
-        return self._target_of[reference.name]
-
-    def get_source_of(self, reference):
-        if reference.name not in self._source_of:
-            self._source_of[reference.name] = LoadListWrapper()
-
-        return self._source_of[reference.name]
-
     def __str__(self):
-        return "Symbol(%s): %s" % (self.location, self.data)
+        return "Symbol(%s): %s" % (self.name, self.kind)
 
 
 

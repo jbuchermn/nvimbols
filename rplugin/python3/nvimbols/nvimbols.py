@@ -1,8 +1,10 @@
 import os
+from threading import Lock
 
 from nvimbols.content import Content, Wrapper, Highlight
 from nvimbols.util import log, on_error
 from nvimbols.graph import SymbolsGraph
+
 
 def setup_nvimbols_help():
     content = Content()
@@ -23,12 +25,20 @@ def setup_nvimbols_help():
 
     return content
 
+
 class NVimbols:
     def __init__(self, parent, source):
         self._parent = parent
         self._source = source
         self.filetypes = source.filetypes
+
         self._graph = SymbolsGraph(self._source, self)
+        self._source.set_graph(self._graph)
+
+        """
+        Rerender at every change in graph
+        """
+        self._graph.on_update(lambda: self.render())
 
         self._current_location = None
         self._current_content = None
@@ -47,7 +57,7 @@ class NVimbols:
     def render(self, force_put=False):
         content = Content()
         if self._mode[0] == 'symbol':
-            content = self._source.render_location(self._graph.get_location(self._current_location))
+            content = self._source.render(self._graph.get(self._current_location))
         elif self._mode[0] == 'help':
             content = self._help_content
         elif self._mode[0] == 'list':
@@ -58,12 +68,12 @@ class NVimbols:
             self._parent.put_content(content)
         self._current_content = content
 
-    def get_current_location(self):
-        return self._graph.get_location(self._current_location)
+    def get_at_current_location(self):
+        return self._graph.get(self._current_location)
 
     def update_location(self, location):
         self._current_location = location
-        self._graph.require_symbol(location)
+        self._graph.require_at_location(location)
         self.render()
 
     def get_link(self, line, col):
@@ -77,20 +87,15 @@ class NVimbols:
         return ""
 
     def get_first_reference(self, reference_name):
-        location = self._graph.get_location(self._current_location)
-        if(location is None or location.symbol.is_loading()):
+        wrapper = self._graph.get(self._current_location)
+        if(wrapper is None):
             return ""
 
-        symbol = location.symbol.get()
-        if(symbol is None):
+        refs = wrapper.source_of[reference_name]
+        if(not refs.is_loaded()):
             return ""
 
-        for r in self._graph.references:
-            if r.name == reference_name:
-                log(str(symbol.get_source_of(r)[0]) if len(symbol.get_source_of(r)) > 0 else "")
-                return str(symbol.get_source_of(r)[0]) if len(symbol.get_source_of(r)) > 0 else ""
-
-        return ""
+        return str(refs.get()[0].location) if len(refs.get()) > 0 else ""
 
     def command(self, command):
         if command == 'clear':

@@ -18,7 +18,10 @@ class Source(Base):
         self._nvimbols = COMM.get('NVimbols')
 
     def gather_candidates(self, context):
-        log(context)
+        """
+        Set is_async to True means gather_candidates will be called over and over until is_async==False
+        """
+        context['is_async'] = False
         if self._nvimbols is None:
             return []
 

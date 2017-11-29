@@ -1,6 +1,17 @@
 from nvimbols.symbol import SymbolLocation
-from nvimbols.util import log, on_error_wrap
-from threading import Lock, Thread
+from nvimbols.util import log, on_error, on_error_wrap
+from nvimbols.loadable import Loadable, LoadableList
+from nvimbols.job_queue import JobQueue
+import time
+
+
+class _SymbolWrapper:
+    def __init__(self, graph, location):
+        self.location = location
+
+        self.symbol = Loadable(graph, {'type': 'symbol', 'wrapper': self})
+        self.target_of = {ref.name: LoadableList(graph, {'type': 'target', 'reference': ref, 'wrapper': self}) for ref in graph.references}
+        self.source_of = {ref.name: LoadableList(graph, {'type': 'source', 'reference': ref, 'wrapper': self}) for ref in graph.references}
 
 
 class SymbolsGraph:
@@ -9,55 +20,72 @@ class SymbolsGraph:
         self._source = source
         self._parent = parent
 
-        self._lock = Lock()
-        self._locations = []
+        self._queue = JobQueue(self._source.tasks)
 
-    def get_location(self, location):
-        for loc in self._locations:
-            if(loc.contains(location)):
-                return loc
+        """
+        Functions to be called when graph changes. Not guaranteed to be called after
+        every atomic changes, might also happen after a batch of requests has been handled
+        """
+        self._observers = []
+
+        """
+        List of _SymbolWrapper
+        """
+        self._data = []
+
+    def on_update(self, func):
+        self._observers += [func]
+
+    def on_request(self, loadable, params):
+        self._queue.job(lambda: self._on_request(loadable, params))
+
+    def _notify(self):
+        for f in self._observers:
+            try:
+                f()
+            except Exception as err:
+                on_error(None, err)
+
+    def _on_request(self, loadable, params):
+        if params['type'] == 'symbol':
+            self._source.load_symbol(params['wrapper'])
+        elif params['type'] == 'target':
+            self._source.load_target_of(params['wrapper'], params['reference'])
+        elif params['type'] == 'source':
+            self._source.load_source_of(params['wrapper'], params['reference'])
+
+        """
+        Could be called from the JobQueue, i. e. after abunch of jobs are completed to prevent constant rerendering
+        """
+        self._notify()
+
+    def create_wrapper(self, location):
+        for w in self._data:
+            if w.location.contains(location) or location.contains(w.location):
+                return w
+
+        location = SymbolLocation(location.filename, location.start_line, location.start_col, location.end_line, location.end_col)
+        wrapper = _SymbolWrapper(self, location)
+
+        self._data += [wrapper]
+        return wrapper
+
+    def get(self, location):
+        for wrapper in self._data:
+            if(wrapper.location.contains(location)):
+                return wrapper
 
         return None
 
     def clear(self):
-        self._locations = []
+        self._data = []
 
-    def require_symbol(self, location):
-        for loc in self._locations:
-            if(loc.contains(location)):
-                return
+    def require_at_location(self, location):
+        wrapper = self.get(location)
+        if(wrapper is None):
+            wrapper = self.create_wrapper(location)
 
-        location = SymbolLocation(location.filename, location.start_line, location.start_col, location.end_line, location.end_col)
-        self._locations += [location]
-        Thread(target=on_error_wrap(None, lambda: self._require_symbol(location))).start()
-
-    def _require_symbol(self, location):
-        if not (not location.symbol.is_loading() and location.symbol.data_set()):
-            self._source.load_symbol(location)
-            self._parent.render()
-
-        symbol = location.symbol.get()
-        if symbol is not None:
-            for r in self.references:
-                if not symbol.target_of_set(r):
-                    self._source.load_target_of(symbol, r)
-                    for i in range(len(symbol.get_target_of(r))):
-                        loc = self.get_location(symbol.get_target_of(r)[i])
-                        if loc is not None:
-                            symbol.get_target_of(r)[i] = loc
-
-                if not symbol.source_of_set(r):
-                    self._source.load_source_of(symbol, r)
-                    for i in range(len(symbol.get_source_of(r))):
-                        loc = self.get_location(symbol.get_source_of(r)[i])
-                        if loc is not None:
-                            symbol.get_source_of(r)[i] = loc
-
-            self._parent.render()
-
-    def log_summary(self):
-        for loc in self._locations:
-            log("%s: %s" % (loc, loc.symbol.get().name if loc.symbol.get() is not None else "None"))
+        wrapper.symbol.request()
 
 
 

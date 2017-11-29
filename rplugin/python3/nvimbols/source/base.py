@@ -2,93 +2,123 @@ import os
 from abc import abstractmethod
 from nvimbols.content import Content, Wrapper, Highlight, Link
 from nvimbols.reference import TargetRef, ParentRef, InheritanceRef
+from nvimbols.util import log
 
 
 class Base:
     def __init__(self, vim):
         self._vim = vim
+        self._graph = None
+
+        """
+        Configuration. Replace in YourSource.__init__
+        """
         self.name = None
         self.filetypes = []
         self.references = [TargetRef, ParentRef, InheritanceRef]
 
-    @abstractmethod
-    def load_symbol(self, location):
         """
-        Loads data into location.symbol without loading any references. Possibly long-running,
+        Maximal number of parallel tasks. For non-thredsafe source, this must be set to 1.
+        """
+        self.tasks = 8
+
+    def set_graph(self, graph):
+        self._graph = graph
+
+    @abstractmethod
+    def load_symbol(self, wrapper):
+        """
+        Loads data into wrapper.symbol without loading any references. Possibly long-running,
         dispatched in seperate worker thread
 
-        Place symbol by location.symbol.set(symbol) and set location.start_col, ... correctly
+        Remember to set wrapper.location correctly (This is initialised to point
+        to one specific character; once the symbol is known location should extend over the whole symbol)
+
+        Place symbol by
+            wrapper.symbol.set(MyOwnSymbol(foo, bar)) # or Symbol(name, kind)
+            wrapper.location.start_col = 1
+            wrapper.location.end_col = 10
 
         If there is no symbol at that location, place None
         """
         pass
 
     @abstractmethod
-    def load_source_of(self, symbol, reference):
+    def load_source_of(self, wrapper, reference):
         """
-        Loads data into symbol.source_of[reference.name], which is a LoadableList of SymbolLocations,
+        Loads data into wrapper.source_of[reference.name].
         Symbols within the locations can be set within this function, but this needn't happen.
 
-        Place like
-            symbol.get_source_of(reference) += [SymbolLocation(...)]
-            symbol.get_source_of(reference) += [SymbolLocation(...)]
-            symbol.get_source_of(reference).loaded()
+        Place by
+            symbol.source_of[reference.name].set([self._graph.create_wrapper(location1), self._graph.create_wrapper(location2)])
 
-        loaded may be called with loaded(True), to state that not all items have been loaded
-        (f. e. references to standard library classes might be many and not really interesting)
-
-        If there are no references, simply call symbol.source_of.loaded()
+        set can be called with an additional parameter "incomplete" to specify, that not all elements have been loaded. Currently
+        there is no cursor based loading of list. This is only meant to display information, that not all usages (of e. g. std::vector)
+        have been fetched.
         """
         pass
 
     @abstractmethod
-    def load_target_of(self, symbol, reference):
+    def load_target_of(self, wrapper, reference):
         """
-        Analogously to load_source_of
+        Loads data into wrapper.target_of[reference.name].
+        Symbols within the locations can be set within this function, but this needn't happen.
+
+        Place by
+            symbol.target_of[reference.name].set([self._graph.create_wrapper(location1), self._graph.create_wrapper(location2)])
+
+        set can be called with an additional parameter "incomplete" to specify, that not all elements have been loaded. Currently
+        there is no cursor based loading of list. This is only meant to display information, that not all usages (of e. g. std::vector)
+        have been fetched.
         """
         pass
 
-    def render_location(self, location):
+    def render(self, wrapper):
         """
         Override this method to implement custom rendering
+
+        Data not yet fetched can be request()ed; once it is loaded, render will be called again.
         """
         content = Content()
 
-        if(location is None or location.symbol.is_loading()):
+        if(not wrapper.symbol.is_loaded()):
             content += "..."
+            wrapper.symbol.request()
         else:
-            symbol = location.symbol.get()
+            symbol = wrapper.symbol.get()
 
             if symbol is None:
                 content += "No symbol"
             else:
                 content += Wrapper("Symbol: ", Highlight('Statement', symbol.name), "\n")
+                content += Wrapper("        ", Highlight('Type', symbol.kind), "\n")
                 for d in symbol.data:
                     content += Wrapper("    %s: " % d, Highlight('Type', symbol.data[d]), "\n")
 
                 for ref in self.references:
-                    source_of = symbol.get_source_of(ref)
+                    source_of = wrapper.source_of[ref.name]
                     content += Highlight('Title', "\n  ----  " + ref.display_targets + "  ----  \n")
 
-                    if(source_of.is_loading()):
+                    if(not source_of.is_loaded()):
                         content += "..."
-                    elif(len(source_of) > 0):
-                        for loc in source_of:
-                            content += Link(loc, Highlight('Type', "%s:%i\n" % (os.path.basename(loc.filename), loc.start_line)))
+                        source_of.request()
+                    else:
+                        for w in source_of.get():
+                            content += Link(w.location, Highlight('Type', "%s:%i\n" % (os.path.basename(w.location.filename), w.location.start_line)))
+                        if(source_of.is_incomplete()):
+                            content += Highlight('PreProc', "[...]\n")
 
-                    if(source_of.is_incomplete()):
-                        content += Highlight('PreProc', '[...]\n')
-
-                    target_of = symbol.get_target_of(ref)
+                    target_of = wrapper.target_of[ref.name]
                     content += Highlight('Title', "\n  ----  " + ref.display_sources + "  ----  \n")
 
-                    if(target_of.is_loading()):
+                    if(not target_of.is_loaded()):
                         content += "..."
-                    elif(len(target_of) > 0):
-                        for loc in target_of:
-                            content += Link(loc, Highlight('Type', "%s:%i\n" % (os.path.basename(loc.filename), loc.start_line)))
-                    
-                    if(target_of.is_incomplete()):
-                        content += Highlight('PreProc', '[...]\n')
+                        target_of.request()
+                    else:
+                        for w in target_of.get():
+                            content += Link(w.location, Highlight('Type', "%s:%i\n" % (os.path.basename(w.location.filename), w.location.start_line)))
+
+                        if(target_of.is_incomplete()):
+                            content += Highlight('PreProc', "[...]\n")
 
         return content
