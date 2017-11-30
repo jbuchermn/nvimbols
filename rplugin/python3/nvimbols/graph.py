@@ -1,6 +1,6 @@
 from nvimbols.symbol import SymbolLocation
 from nvimbols.util import log, on_error, on_error_wrap
-from nvimbols.loadable import Loadable, LoadableList
+from nvimbols.loadable import Loadable
 from nvimbols.job_queue import JobQueue
 import time
 
@@ -10,8 +10,8 @@ class _SymbolWrapper:
         self.location = location
 
         self.symbol = Loadable(graph, {'type': 'symbol', 'wrapper': self})
-        self.target_of = {ref.name: LoadableList(graph, {'type': 'target', 'reference': ref, 'wrapper': self}) for ref in graph.references}
-        self.source_of = {ref.name: LoadableList(graph, {'type': 'source', 'reference': ref, 'wrapper': self}) for ref in graph.references}
+        self.target_of = {ref.name: Loadable(graph, {'type': 'target', 'reference': ref, 'wrapper': self}) for ref in graph.references}
+        self.source_of = {ref.name: Loadable(graph, {'type': 'source', 'reference': ref, 'wrapper': self}) for ref in graph.references}
 
 
 class SymbolsGraph:
@@ -48,11 +48,11 @@ class SymbolsGraph:
 
     def _on_request(self, loadable, params):
         if params['type'] == 'symbol':
-            self._source.load_symbol(params['wrapper'])
+            self._source.load_symbol(params)
         elif params['type'] == 'target':
-            self._source.load_target_of(params['wrapper'], params['reference'])
+            self._source.load_target_of(params)
         elif params['type'] == 'source':
-            self._source.load_source_of(params['wrapper'], params['reference'])
+            self._source.load_source_of(params)
 
         """
         Could be called from the JobQueue, i. e. after abunch of jobs are completed to prevent constant rerendering
@@ -78,6 +78,7 @@ class SymbolsGraph:
         return None
 
     def clear(self):
+        log("CLEAR")
         self._data = []
 
     def require_at_location(self, location):
