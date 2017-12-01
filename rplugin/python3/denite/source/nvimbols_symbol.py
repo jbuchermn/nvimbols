@@ -10,13 +10,41 @@ class Source(Base):
         self.name = 'nvimbols_symbol'
         self.kind = 'file'
         self.vars = {}
-        self.matchers = ['matcher_ignore_globs', 'matcher_regexp']
+        self.matchers = ['matcher_fuzzy']
+
+        self._content = None
+        self._candidate_hashes = []
+        self._new_candidates = []
 
         self._nvimbols = None
+        self._nvimbols_obsid = None
+
+    def render(self):
+        self._content = self._nvimbols.render_denite('symbol')
+
+        new_candidates = []
+        for c in self._content.get_candidates():
+            if not c['__hash'] in self._candidate_hashes:
+                new_candidates += [c]
+
+        for c in new_candidates:
+            self._candidate_hashes += [c['__hash']]
+
+        self._new_candidates += new_candidates
+
+    def on_init(self, context):
+        self._nvimbols = COMM.get('NVimbols')
+        self._nvimbols_obsid = self._nvimbols.on_update(lambda: self.render())
+
+        self._new_candidates = []
+        self._candidate_hashes = []
+        self.render()
+
+    def on_close(self, context):
+        self._nvimbols.remove_on_update(self._nvimbols_obsid)
 
     def gather_candidates(self, context):
-        nvimbols = COMM.get('NVimbols')
-        if nvimbols is not None:
-            return nvimbols.render_denite(context, 'symbol')
-        else:
-            return []
+        context['is_async'] = not self._content.is_complete()
+        result = self._new_candidates
+        self._new_candidates = []
+        return result

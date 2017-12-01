@@ -43,6 +43,33 @@ endfunction
 function! nvimbols#command(command) abort
     call _nvimbols_command(a:command)
 endfunction
+
+function! nvimbols#set_jumps(jumps) abort
+    let s:Jumps = a:jumps
+endfunction
+
+function! nvimbols#get_link(line, col) abort
+    if(!exists("s:Jumps"))
+        return ""
+    endif
+    for d in items(s:Jumps.links)
+        let t_line = split(d[0], ":")[0]
+        let t_start_col = split(d[0], ":")[1]
+        let t_end_col = split(d[0], ":")[2]
+        if(t_line == a:line && t_start_col <= a:col && (t_end_col == -1 || t_end_col >= a:col))
+            return d[1]
+        endif
+    endfor
+
+    return ""
+endfunction
+
+function! nvimbols#get_quickjump(quickjump) abort
+    if(!exists("s:Jumps"))
+        return ""
+    endif
+    return get(s:Jumps.quickjumps, a:quickjump, "")
+endfunction
 " }}}
 
 " Window management {{{
@@ -122,7 +149,7 @@ function! nvimbols#follow_link(split) abort
     endif
 
     let [line, col] = getpos('.')[1:2]
-    let result = _nvimbols_get_link(line, col)
+    let result = nvimbols#get_link(line, col)
     if result==""
         return
     endif
@@ -140,8 +167,8 @@ function! nvimbols#follow_link(split) abort
     call cursor(t_line, t_col)
 endfunction
 
-function! nvimbols#follow_first_reference(reference_name, split) abort
-    let result = _nvimbols_get_first_reference(a:reference_name)
+function! nvimbols#follow_quickjump(quickjump, split) abort
+    let result = nvimbols#get_quickjump(a:quickjump)
     if result==""
         return
     endif
@@ -174,6 +201,10 @@ endfunction
 
 function! nvimbols#cursormoved() abort
     call nvimbols#update_location()
+endfunction
+
+function! nvimbols#vimleave() abort
+    call _nvimbols_vimleave()
 endfunction
 " }}}
 

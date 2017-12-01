@@ -11,7 +11,7 @@ from nvimbols.symbol import SymbolLocation
 from nvimbols.communicator import COMM
 
 @neovim.plugin
-class NVimbolsPlugin(object):
+class NVimbolsPlugin:
     def __init__(self, vim):
         self._vim = vim
         self._config = {}
@@ -37,40 +37,6 @@ class NVimbolsPlugin(object):
                     on_error(self._vim, err)
 
         Thread(target=wrapped).start()
-
-    def _put_content(self):
-        """
-        Do not lock inside threadsafe_call. This causes deadlocks
-        """
-        if self._put_content_lock.acquire(False):
-            try:
-                buf = None
-                for b in self._vim.buffers:
-                    if b.name.endswith(self._config['nvimbols_window_name']):
-                        buf = b
-                        break
-
-                if buf is not None:
-                    buf.api.set_option('modifiable', True)
-
-                    buf[:] = self._content.raw()
-                    for highlight in self._content.highlights():
-                        buf.add_highlight(highlight.name, highlight.line - 1, highlight.start_col - 1, highlight.end_col - 1 if highlight.end_col >= 1 else -1, -1)
-
-                    buf.api.set_option('modifiable', False)
-
-            finally:
-                self._put_content_lock.release()
-        else:
-            return True
-
-    def put_content(self, content=None):
-        self._content = content
-        if self._content is None:
-            self._content = self._content_if_deactivated
-
-        if self._put_content_queue.is_empty():
-            self._put_content_queue.job(lambda: self._put_content())
 
     def _init(self, args):
         self._config = args[0]
@@ -133,12 +99,59 @@ class NVimbolsPlugin(object):
         if(selected_source is not None):
             log("  <> selected source: %s" % selected_source.name)
             self._main = NVimbols(self, selected_source)
+
+            """
+            Enable automatic rendering
+            """
+            self._main.on_update(lambda: self._render())
         else:
             log("  <> no source selected, deactivating")
-            self.put_content()
             self._main = None
+            self._render()
 
         COMM.set('NVimbols', self._main)
+
+    def _put_content(self):
+        """
+        Do not lock inside threadsafe_call. This causes deadlocks
+        """
+        if self._put_content_lock.acquire(False):
+            try:
+                buf = None
+                for b in self._vim.buffers:
+                    if b.name.endswith(self._config['nvimbols_window_name']):
+                        buf = b
+                        break
+
+                if buf is not None:
+                    buf.api.set_option('modifiable', True)
+
+                    buf[:] = self._content.raw()
+                    for highlight in self._content.highlights():
+                        buf.add_highlight(highlight.name, highlight.line - 1, highlight.start_col - 1, highlight.end_col - 1 if highlight.end_col >= 1 else -1, -1)
+
+                    buf.api.set_option('modifiable', False)
+                
+                jumps = {
+                    'links': self._content.links(),
+                    'quickjumps': self._content.quickjumps()
+                }
+                self._vim.call("nvimbols#set_jumps", jumps)
+
+            finally:
+                self._put_content_lock.release()
+        else:
+            return True
+
+    def _render(self, force_put=False):
+        content = self._content_if_deactivated if self._main is None else self._main.render()
+
+        if force_put or self._content != content:
+            self._content = content
+            if self._put_content_queue.is_empty():
+                self._put_content_queue.job(lambda: self._put_content())
+
+        self._content = content
 
     def _update_location(self, args):
         if(self._main is None):
@@ -150,13 +163,7 @@ class NVimbolsPlugin(object):
 
         location = SymbolLocation(filename, line, col)
         self._main.update_location(location)
-
-    def _render(self, args):
-        if(self._main is None):
-            self.put_content()
-            return
-
-        self._main.render(args[0] != 0 if len(args) > 0 else False)
+        self._render()
 
     def _command(self, args):
         if(self._main is None):
@@ -164,12 +171,14 @@ class NVimbolsPlugin(object):
 
         self._main.command(args[0])
 
-    """
-    Public interface
+    def _cancel(self, args):
+        if(self._main is None):
+            return
 
-    We never lock threads owned by ViM, this causes deadlocks. That is, why
-    synchronous functions fail silently. For example _main might be None due to _init
-    by the time a method is called on _main.
+        self._main.cancel()
+
+    """
+    Public asynchronous interface, immediately dispatched to own threads.
     """
     @neovim.function('_nvimbols_init')
     def init(self, args):
@@ -181,35 +190,16 @@ class NVimbolsPlugin(object):
 
     @neovim.function('_nvimbols_render')
     def render(self, args):
-        self._dispatch(NVimbolsPlugin._render, self, args)
+        self._dispatch(NVimbolsPlugin._render, self, args[0] != 0 if len(args) > 0 else False)
 
     @neovim.function('_nvimbols_command')
     def command(self, args):
         self._dispatch(NVimbolsPlugin._command, self, args)
 
-    @neovim.function('_nvimbols_get_link', sync=True)
-    def get_link(self, args):
-        if self._main is None:
-            return ""
+    @neovim.function('_nvimbols_vimleave')
+    def vimleave(self, args):
+        self._dispatch(NVimbolsPlugin._cancel, self, args)
 
-        try:
-            line = args[0]
-            col = args[1]
-
-            return self._main.get_link(line, col)
-        except Exception as err:
-            pass
-
-    @neovim.function('_nvimbols_get_first_reference', sync=True)
-    def get_link_to_first_reference(self, args):
-        if self._main is None:
-            return ""
-
-        try:
-            reference_name = args[0]
-            return self._main.get_first_reference(reference_name)
-        except Exception as err:
-            pass
 
 
 

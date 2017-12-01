@@ -2,8 +2,10 @@ import os
 from threading import Lock
 
 from nvimbols.content import Content, Wrapper, Highlight
+from nvimbols.denite_content import DeniteContent
 from nvimbols.util import log, on_error
 from nvimbols.graph import SymbolsGraph
+from nvimbols.observable import Observable
 
 
 def setup_nvimbols_help():
@@ -27,24 +29,24 @@ def setup_nvimbols_help():
     return content
 
 
-class NVimbols:
+class NVimbols(Observable):
     def __init__(self, parent, source):
+        super().__init__()
+
         self._parent = parent
         self._source = source
         self.filetypes = source.filetypes
 
         self._graph = SymbolsGraph(self._source, self)
         self._source.set_graph(self._graph)
-
-        """
-        Rerender at every change in graph
-        """
-        self._graph.on_update(lambda: self.render())
-
         self._current_location = None
-        self._current_content = None
 
         self._help_content = setup_nvimbols_help()
+
+        """
+        Pass notifications through
+        """
+        self._graph.on_update(lambda: self._notify())
 
         """
         'symbol': Display info about the symbol, the cursor is on
@@ -55,27 +57,24 @@ class NVimbols:
         """
         self._mode = ['symbol']
 
-    def render(self, force_put=False):
-        content = Content()
+    def cancel(self):
+        self._graph.cancel()
+
+    def render(self):
         if self._mode[0] == 'symbol':
-            content = self._source.render(self._graph.get(self._current_location))
+            return self._source.render(self._graph.get(self._current_location))
         elif self._mode[0] == 'help':
-            content = self._help_content
+            return self._help_content
         elif self._mode[0] == 'list':
             # TODO
-            content = Content()
+            return Content()
 
-        if force_put or self._current_content != content:
-            self._parent.put_content(content)
-        self._current_content = content
-
-    def render_denite(self, context, mode):
-        context['is_async'] = False
+    def render_denite(self, mode):
         if mode == 'symbol':
-            return self._source.render_denite(self._graph.get(self._current_location), context)
+            return self._source.render_denite(self._graph.get(self._current_location))
         elif mode == 'list':
             # TODO
-            return []
+            return DeniteContent()
 
     def get_at_current_location(self):
         return self._graph.get(self._current_location)
@@ -85,38 +84,17 @@ class NVimbols:
         self._graph.require_at_location(location)
         self.render()
 
-    def get_link(self, line, col):
-        if(self._current_content is None):
-            return ""
-
-        for link in self._current_content.links():
-            if(link.line == line and link.start_col <= col and (link.end_col == -1 or link.end_col >= col)):
-                return str(link.target)
-
-        return ""
-
-    def get_first_reference(self, reference_name):
-        wrapper = self._graph.get(self._current_location)
-        if(wrapper is None):
-            return ""
-
-        refs = wrapper.source_of[reference_name]
-        if(not refs.is_loaded()):
-            return ""
-
-        return str(refs.get()[0].location) if len(refs.get()) > 0 else ""
-
     def command(self, command):
         if command == 'clear':
             self._graph.clear()
             self.update_location(self._current_location)
+
         elif command == 'help':
             if self._mode[0] == 'help':
                 del self._mode[0]
             else:
                 self._mode = ['help'] + self._mode
 
-            self.render(True)
         elif command == 'switch_mode':
             if self._mode[0] == 'help':
                 return
@@ -126,7 +104,8 @@ class NVimbols:
             else:
                 self._mode = ['symbol'] + self._mode
 
-            self.render(True)
+        self._notify()
+
 
 
 

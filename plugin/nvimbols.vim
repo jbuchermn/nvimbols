@@ -35,6 +35,7 @@ if(g:nvimbols_enabled)
         autocmd Filetype * :call nvimbols#filetype()
         autocmd InsertLeave * :call nvimbols#insertleave()
         autocmd CursorMoved * :call nvimbols#cursormoved()
+        autocmd VimLeave * :call nvimbols#vimleave()
     augroup end
 else
     augroup nvimbols_root
@@ -51,12 +52,12 @@ if(g:nvimbols_enabled)
     command! NVimbolsHelp :call nvimbols#command('help')
     command! NVimbolsSwitch :call nvimbols#command('switch_mode')
     " Commands when cursor is on symbol
-    command! NVimbolsFollowTarget :call nvimbols#follow_first_reference("references", '')
-    command! NVimbolsFollowParent :call nvimbols#follow_first_reference("is_child_of", '')
-    command! NVimbolsFollowBase :call nvimbols#follow_first_reference("inherits_from", '')
-    command! NVimbolsFollowTargetVertical :call nvimbols#follow_first_reference("references", 'v')
-    command! NVimbolsFollowParentVertical :call nvimbols#follow_first_reference("is_child_of", 'v')
-    command! NVimbolsFollowBaseVertical :call nvimbols#follow_first_reference("inherits_from", 'v')
+    command! NVimbolsFollowTarget :call nvimbols#follow_quickjump("first_source_of_references", '')
+    command! NVimbolsFollowParent :call nvimbols#follow_quickjump("first_source_of_is_child_of", '')
+    command! NVimbolsFollowBase :call nvimbols#follow_quickjump("first_source_of_inherits_from", '')
+    command! NVimbolsFollowTargetVertical :call nvimbols#follow_quickjump("first_source_of_references", 'v')
+    command! NVimbolsFollowParentVertical :call nvimbols#follow_quickjump("first_source_of_is_child_of", 'v')
+    command! NVimbolsFollowBaseVertical :call nvimbols#follow_quickjump("first_source_of_inherits_from", 'v')
     " Commands when cursor is in NVimbols window
     command! NVimbolsFollow :call nvimbols#follow_link('')
     command! NVimbolsFollowVertical :call nvimbols#follow_link('v')

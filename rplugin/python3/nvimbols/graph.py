@@ -1,6 +1,7 @@
 from nvimbols.symbol import SymbolLocation
 from nvimbols.util import log, on_error, on_error_wrap
 from nvimbols.loadable import Loadable
+from nvimbols.observable import Observable
 from nvimbols.job_queue import JobQueue
 import time
 
@@ -14,8 +15,10 @@ class _SymbolWrapper:
         self.source_of = {ref.name: Loadable(graph, {'type': 'source', 'reference': ref, 'wrapper': self}) for ref in graph.references}
 
 
-class SymbolsGraph:
+class SymbolsGraph(Observable):
     def __init__(self, source, parent):
+        super().__init__()
+
         self.references = source.references
         self._source = source
         self._parent = parent
@@ -23,28 +26,20 @@ class SymbolsGraph:
         self._queue = JobQueue(self._source.tasks)
 
         """
-        Functions to be called when graph changes. Not guaranteed to be called after
-        every atomic changes, might also happen after a batch of requests has been handled
+        Pass notifications from job_queue through
         """
-        self._observers = []
+        self._queue.on_update(lambda: self._notify())
 
         """
         List of _SymbolWrapper
         """
         self._data = []
 
-    def on_update(self, func):
-        self._observers += [func]
+    def cancel(self):
+        self._queue.cancel()
 
     def on_request(self, loadable, params):
         self._queue.job(lambda: self._on_request(loadable, params))
-
-    def _notify(self):
-        for f in self._observers:
-            try:
-                f()
-            except Exception as err:
-                on_error(None, err)
 
     def _on_request(self, loadable, params):
         if params['type'] == 'symbol':
@@ -54,10 +49,6 @@ class SymbolsGraph:
         elif params['type'] == 'source':
             self._source.load_source_of(params)
 
-        """
-        Could be called from the JobQueue, i. e. after abunch of jobs are completed to prevent constant rerendering
-        """
-        self._notify()
 
     def create_wrapper(self, location):
         for w in self._data:
@@ -78,7 +69,7 @@ class SymbolsGraph:
         return None
 
     def clear(self):
-        log("CLEAR")
+        self._queue.cancel()
         self._data = []
 
     def require_at_location(self, location):

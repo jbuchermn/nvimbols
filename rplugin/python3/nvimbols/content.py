@@ -12,7 +12,7 @@ class Component:
     def __eq__(self, other):
         if other is None:
             return False
-        
+
         return (
             self.line == other.line and
             self.start_col == other.start_col and
@@ -81,6 +81,7 @@ class Content:
     def __init__(self):
         self._raw = ""
         self._components = []
+        self._quickjumps = {}
 
     def current(self):
         line = self._raw.count('\n') + 1
@@ -120,9 +121,18 @@ class Content:
                 yield c
 
     def links(self):
+        result = {}
         for c in self._components:
             if(isinstance(c, Link)):
-                yield c
+                result["%i:%i:%i" % (c.line, c.start_col, c.end_col)] = str(c.target)
+
+        return result
+
+    def quickjumps(self):
+        return {n: str(self._quickjumps[n]) for n in self._quickjumps}
+
+    def add_quickjump(self, name, target):
+        self._quickjumps[name] = target
 
     def __eq__(self, other):
         if other is None:

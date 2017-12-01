@@ -1,10 +1,13 @@
 from threading import Thread, Lock
 
-from nvimbols.util import on_error
+from nvimbols.observable import Observable
+from nvimbols.util import on_error, log
 
 
-class JobQueue:
+class JobQueue(Observable):
     def __init__(self, tasks=1, vim=None, threadsafe=False):
+        super().__init__()
+
         self._tasks = tasks
         self._vim = vim
         self._threadsafe = threadsafe
@@ -14,6 +17,8 @@ class JobQueue:
         self._lock = Lock()
         self._jobs = []
         self._running_jobs = 0
+
+        self._skipped_notifications = 0
 
     def is_empty(self):
         """
@@ -34,6 +39,10 @@ class JobQueue:
             self._jobs += [job]
 
         self._dispatch()
+
+    def cancel(self):
+        with self._lock:
+            self._jobs = []
 
     def _next_job(self):
         with self._lock:
@@ -61,6 +70,20 @@ class JobQueue:
             if self._running_jobs < 1:
                 raise Exception("Unexpected call to _on_task_finished")
             self._running_jobs -= 1
+
+            def do_notify():
+                self._skipped_notifications = 0
+                Thread(target=lambda: self._notify()).start()
+
+            """
+            Batch notifications according to simple heuristics
+            """
+            if len(self._jobs) == 0 and self._running_jobs == 0:
+                do_notify()
+            elif self._skipped_notifications > 100:
+                do_notify()
+            else:
+                self._skipped_notifications += 1
 
         self._dispatch()
 
