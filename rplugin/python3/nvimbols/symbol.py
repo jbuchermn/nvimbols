@@ -15,6 +15,9 @@ class SymbolLocation:
         self.end_col = end_col
 
     def contains(self, other):
+        if(isinstance(other, SymbolLocationFile)):
+            return False
+
         if(self.filename != other.filename):
             return False
 
@@ -37,6 +40,17 @@ class SymbolLocation:
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+
+class SymbolLocationFile(SymbolLocation):
+    def __init__(self, filename):
+        super().__init__(filename, 0, 0)
+
+    def contains(self, other):
+        if(not isinstance(other, SymbolLocationFile)):
+            return False
+
+        return self.filename == other.filename
 
 
 class Symbol:

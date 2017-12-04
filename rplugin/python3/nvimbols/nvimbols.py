@@ -6,6 +6,8 @@ from nvimbols.denite_content import DeniteContent
 from nvimbols.util import log, on_error
 from nvimbols.graph import SymbolsGraph
 from nvimbols.observable import Observable
+from nvimbols.symbol import SymbolLocationFile
+from nvimbols.loadable import LOADABLE_PREVIEW
 
 
 def setup_nvimbols_help():
@@ -66,27 +68,27 @@ class NVimbols(Observable):
         elif self._mode[0] == 'help':
             return self._help_content
         elif self._mode[0] == 'list':
-            # TODO
-            return Content()
+            return self._source.render(self._graph.get(SymbolLocationFile(self._current_location.filename)))
 
     def render_denite(self, mode):
         if mode == 'symbol':
             return self._source.render_denite(self._graph.get(self._current_location))
         elif mode == 'list':
-            # TODO
-            return DeniteContent()
+            return self._source.render_denite(self._graph.get(SymbolLocationFile(self._current_location.filename)))
 
     def get_at_current_location(self):
         return self._graph.get(self._current_location)
 
     def update_location(self, location):
         self._current_location = location
-        self._graph.require_at_location(location)
+        self._graph.get(location).request(LOADABLE_PREVIEW)
+        self._graph.get(SymbolLocationFile(location.filename)).request(LOADABLE_PREVIEW)
         self.render()
 
     def command(self, command):
         if command == 'clear':
             self._graph.clear()
+            self._source.reset()
             self.update_location(self._current_location)
 
         elif command == 'help':

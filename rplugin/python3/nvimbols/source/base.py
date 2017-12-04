@@ -27,6 +27,9 @@ class Base:
     def set_graph(self, graph):
         self._graph = graph
 
+    def reset(self):
+        pass
+
     @abstractmethod
     def load_symbol(self, params):
         """
@@ -65,7 +68,7 @@ class Base:
         Symbols within the locations can be set within this function, but this needn't happen.
 
         Place by
-            symbol.source_of[reference.name].set([self._graph.create_wrapper(location1), self._graph.create_wrapper(location2)])
+            wrapper.source_of[reference.name].set([self._graph.create_wrapper(location1), self._graph.create_wrapper(location2)])
 
         Second parameter of set is the loaded level, should match requested_level (or a higher level). Defaults to LOADABLE_FULL.
         """
@@ -80,15 +83,19 @@ class Base:
             'requested_level'
             'loaded_level'
 
+        wrapper might be of type SYMBOL_FILE, if reference == ParentRef. Should load all immediate children. I. e.
+        for every symbol in a file there should be a path via parents to a Symbol of type SYMBOL_FILE
+
         Loads data into wrapper.target_of[reference.name].
         Symbols within the locations can be set within this function, but this needn't happen.
 
         Place by
-            symbol.target_of[reference.name].set([self._graph.create_wrapper(location1), self._graph.create_wrapper(location2)])
+            wrapper.target_of[reference.name].set([self._graph.create_wrapper(location1), self._graph.create_wrapper(location2)])
 
         Second parameter of set is the loaded level, should match requested_level (or a higher level). Defaults to LOADABLE_FULL.
         """
         pass
+
 
     def render(self, wrapper):
         """
@@ -136,7 +143,7 @@ class Base:
 
                     target_of = wrapper.target_of[ref.name]
                     content += Highlight('Title', "\n  ----  " + ref.display_sources + "  ----  \n")
-
+                    
                     if(not target_of.is_loaded(LOADABLE_PREVIEW)):
                         content += "..."
                         target_of.request(LOADABLE_PREVIEW)

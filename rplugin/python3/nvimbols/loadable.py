@@ -1,6 +1,7 @@
 LOADABLE_PREVIEW = 'preview'
 LOADABLE_FULL = 'full'
 
+
 class Loadable:
     def __init__(self, graph, params):
         self._graph = graph
