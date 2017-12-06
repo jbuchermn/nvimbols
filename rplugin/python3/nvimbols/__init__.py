@@ -131,7 +131,7 @@ class NVimbolsPlugin:
                         buf.add_highlight(highlight.name, highlight.line - 1, highlight.start_col - 1, highlight.end_col - 1 if highlight.end_col >= 1 else -1, -1)
 
                     buf.api.set_option('modifiable', False)
-                
+
                 jumps = {
                     'links': self._content.links(),
                     'quickjumps': self._content.quickjumps()

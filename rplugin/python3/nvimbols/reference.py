@@ -1,5 +1,6 @@
 from nvimbols.loadable import LOADABLE_FULL
 from nvimbols.symbol import SymbolLocationFile
+from nvimbols.util import log
 from nvimbols.graph import SYMBOL_FILE
 
 
@@ -24,27 +25,24 @@ class ParentReference(Reference):
 
     def validate(self, graph):
         for d in graph.get_all():
+            """
+            Request parent of all symbols
+            """
             parents = d.source_of[self.name]
             if(not parents.is_loaded(LOADABLE_FULL)):
-                parents.request(LOADABLE_FULL)
+                parents.request()
                 continue
 
             """
             Ensure hierarchy within file and unique parent
             """
-            tmp = []
+            tmp = None
             for p in parents.get():
                 if p.location.filename == d.location.filename:
-                    tmp += [p]
+                    tmp = p
+                    break
 
-            parents.set(tmp[:1] if len(tmp) > 0 else [], LOADABLE_FULL)
-
-            """
-            Set filename as parent of roots
-            """
-            if not d.type == SYMBOL_FILE and len(parents.get()) == 0:
-                file_wrapper = graph.create_wrapper(SymbolLocationFile(d.location.filename))
-                parents.set([file_wrapper], LOADABLE_FULL)
+            parents.set([tmp] if tmp is not None else [])
 
         """
         Delete children, that are not really children
@@ -54,12 +52,14 @@ class ParentReference(Reference):
             if(not children.is_loaded()):
                 continue
 
-            children.set(children.get(), LOADABLE_FULL)
+            new_children = []
+            for c in children.get():
+                log(c.location)
+                log(c.symbol.get())
+                if (not c.source_of[self.name].is_loaded(LOADABLE_FULL)) or (d in c.source_of[self.name].get()):
+                    new_children += [c]
 
-            for i in range(len(children.get()) - 1, 0, -1):
-                c = children.get()[i]
-                if c.source_of[self.name].is_loaded(LOADABLE_FULL) and d not in c.source_of[self.name].get():
-                    del children.get()[i]
+            children.set(new_children)
 
 
 class InheritanceReference(Reference):

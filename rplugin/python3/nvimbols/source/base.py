@@ -17,10 +17,11 @@ class Base:
         """
         self.name = None
         self.filetypes = []
+        self.kinds = []
         self.references = [TargetRef, ParentRef, InheritanceRef]
 
         """
-        Maximal number of parallel tasks. For non-thredsafe source, this must be set to 1.
+        Maximal number of parallel tasks. For non-threadsafe source, this must be set to 1.
         """
         self.tasks = 4
 

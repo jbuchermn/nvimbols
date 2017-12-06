@@ -1,5 +1,6 @@
 import os
 
+from threading import Lock
 from nvimbols.util import log
 from nvimbols.symbol import SymbolLocation, SymbolLocationFile, Symbol
 from nvimbols.loadable import Loadable, LOADABLE_FULL
@@ -50,49 +51,65 @@ class SymbolsGraph(Observable):
         self._source = source
         self._parent = parent
 
-        self._queue = JobQueue(self._source.tasks)
+        self._queue = JobQueue(1)  # self._source.tasks)
 
-        self._queue.on_update(lambda: self._on_update())
+        self._queue.on_update(lambda: self._notify())
 
         """
         List of _SymbolWrapper
         """
         self._data = []
 
-    def _on_update(self):
+    def _validate(self):
         for ref in self.references:
             ref.validate(self)
-
-        self._notify()
 
     def cancel(self):
         self._queue.cancel()
 
     def on_request(self, loadable, params):
         self._queue.job(lambda: self._on_request(loadable, params))
+        """
+        TODO! Ensure this is run thread-safe -> Feature in job_queue
+        Also, maybe not run this after every single request...
+        """
+        self._queue.job(lambda: self._validate())
 
     def _on_request(self, loadable, params):
         if params['type'] == 'symbol':
             self._source.load_symbol(params)
-        elif params['type'] == 'target':
-            self._source.load_target_of(params)
-        elif params['type'] == 'source':
-            self._source.load_source_of(params)
-        elif params['type'] == 'file':
-            self._source.load_symbols_in_file(params)
+        else:
+            """
+            Only load references for symbols that exist
+            """
+            if (not params['wrapper'].symbol.is_loaded()):
+                params['wrapper'].symbol.request()
+                self.on_request(loadable, params)
+                return
+            elif params['wrapper'].symbol.get() is None:
+                return
+
+            if params['type'] == 'target':
+                self._source.load_target_of(params)
+            elif params['type'] == 'source':
+                self._source.load_source_of(params)
 
         """
         Reissue load if not successful
         """
         if(not loadable.is_loaded(params['requested_level'])):
-            self._on_request(loadable, params)
+            self.on_request(loadable, params)
 
     def create_wrapper(self, location):
         for w in self._data:
             if w.location.contains(location) or location.contains(w.location):
                 return w
 
-        location = SymbolLocation(location.filename, location.start_line, location.start_col, location.end_line, location.end_col) if not isinstance(location, SymbolLocationFile) else SymbolLocationFile(location.filename)
+        location = (
+            SymbolLocation(location.filename, location.start_line, location.start_col, location.end_line, location.end_col) if
+            not isinstance(location, SymbolLocationFile) else
+            SymbolLocationFile(location.filename)
+        )
         wrapper = _SymbolWrapper(self, location)
 
         self._data += [wrapper]
