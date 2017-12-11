@@ -5,10 +5,10 @@
 The idea is to represent dependencies within a project (i. e. a call of a specific function, reference of a class or declaration of a field...) as a graph
 whose nodes are called symbols. A symbol can be stuff like
 
-    * Declaration of a class, method, field
-    * Definition of a method
-    * Call of a method (this is a distinct symbol from the definition or declaration of the method)
-    * Reference of a variable
+* Declaration of a class, method, field
+* Definition of a method
+* Call of a method (this is a distinct symbol from the definition or declaration of the method)
+* Reference of a variable
 
 for example
 
@@ -49,9 +49,9 @@ int test(int a, int b){
 Only the fact that source files consist of distinct locations (e. g. `main.cpp:111:10:111:15`, columns 10 through 14 on line 111 in main.cpp), which reference each other
 in various ways, like:
 
-    * Call or usage
-    * Inheritance
-    * Children (e. g. method declaration of class declaration)
+* Call or usage
+* Inheritance
+* Children (e. g. method declaration of class declaration)
 
 ## Architecture
 
