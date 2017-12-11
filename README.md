@@ -65,6 +65,10 @@ boiler-code for parallel loading of symbols and graph creation, jumping through 
 
 ## Source API
 
+TODO: Current API is not nice.
+
+Example from `nvimbols-rtags`:
+
 ```python
 from nvimbols.source.base import Base
 
