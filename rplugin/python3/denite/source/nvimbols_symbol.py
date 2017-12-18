@@ -41,7 +41,10 @@ class Source(Base):
         self.render()
 
     def on_close(self, context):
-        self._nvimbols.remove_on_update(self._nvimbols_obsid)
+        if(self._nvimbols_obsid is not None):
+            self._nvimbols.remove_on_update(self._nvimbols_obsid)
+
+        self._nvimbols_obsid = None
 
     def gather_candidates(self, context):
         context['is_async'] = not self._content.is_complete()
