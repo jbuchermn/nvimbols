@@ -2,8 +2,8 @@
 
 ## Graph
 
-The idea is to represent dependencies within a project (i. e. a call of a specific function, reference of a class or declaration of a field...) as a graph
-whose nodes are called symbols. A symbol can be stuff like
+The idea is to represent dependencies within a project (i. e. a call of a specific function, reference of a
+class or declaration of a field...) as a directed graph whose nodes are called symbols. A symbol can be stuff like
 
 * Declaration of a class, method, field
 * Definition of a method
@@ -30,7 +30,8 @@ int test(int a, int b){
 }
 ```
 
-However, the specifics of how the symbols are defined is not fixed by NVimbols. Another way to symbolize the above code might be
+However, the specifics of how the symbols are defined is not fixed by NVimbols. Another way to symbolize
+the above code might be
 
 ```cpp
 // Symbol: Declaration and defintion of test
@@ -46,8 +47,8 @@ int test(int a, int b){
     return c;
 }
 ```
-Only the fact that source files consist of distinct locations (e. g. `main.cpp:111:10:111:15`, columns 10 through 14 on line 111 in main.cpp), which reference each other
-in various ways, like:
+Only the fact that source files consist of distinct locations (e. g. `main.cpp:111:10:111:15`,
+columns 10 through 14 on line 111 in main.cpp), which reference each other in various ways, like:
 
 * Call or usage
 * Inheritance
@@ -55,84 +56,83 @@ in various ways, like:
 
 ## Architecture
 
-NVimbols is merely meant to streamline this concept, it is not in any way aware of the source code. This task is left to sources for specific languages. So,
-upon moving the cursor in ViM, NVimbols will see if it knows a source for the filetype and ask that source to load the symbol at the current location. The source will then
-load information like, whether this is a class declaration or a method reference, or whatever. NVimbols will also - if needed - ask the source to load locations
-the symbol references (i. e. the declaration of a method) or that reference this symbol (i. e. usages of a method).
+NVimbols is merely meant to streamline this concept, it is not in any way aware of the source code.
+This task is left to sources for specific languages. So, upon moving the cursor in ViM, NVimbols will see 
+if it knows a source for the filetype and ask that source to load the symbol at the current location. 
+The source will then load information like, whether this is a class declaration or a method reference, or whatever. 
+NVimbols will also - if needed - ask the source to load locations the symbol references (i. e. the declaration
+of a method) or that reference this symbol (i. e. usages of a method).
 
-All the knowledge about what happens comes from the source, NVimbols is merely thought to provide a unified interface for sources to make this data available and provide
-boiler-code for parallel loading of symbols and graph creation, jumping through the source code, interacting with Denite, ...
+All the knowledge about what happens comes from the source, NVimbols is merely thought to provide a unified
+interface for sources to make this data available and provide boilerplate-code for parallel loading of symbols
+and graph creation, jumping through the source code, interacting with Denite, ...
 
-## Source API
+## Specifications
 
-TODO: Current API is not nice.
+### Basic classes
 
-Example from `nvimbols-rtags`:
-
-```python
-from nvimbols.source.base import Base
-
-class Source(Base):
-    def __init__(self, vim):
-        super().__init__(vim)
-        self.name = "RTags"
-        self.filetypes = ['c', 'cpp', 'objc', 'objcpp']
-
-    def load_symbol(self, params):
-        wrapper = params['wrapper']
-
-        symbol = rc_get_symbol_info(wrapper.location)
-
-        if(symbol is None):
-            wrapper.symbol.set(None)
-        else:
-            filename, start_line, start_col, end_line, end_col = get_location(symbol)
-
-            wrapper.location.filename = filename
-            wrapper.location.start_line = start_line
-            wrapper.location.start_col = start_col
-            wrapper.location.end_line = end_line
-            wrapper.location.end_col = end_col
-
-            wrapper.symbol.set(RTagsSymbol(symbol))
-            if 'parent' in symbol:
-                parent_location = SymbolLocation(*get_location(symbol['parent']))
-                wrapper.source_of[ParentRef.name].set([self._graph.create_wrapper(parent_location)])
-
-    def load_source_of(self, params):
-        wrapper = params['wrapper']
-        reference = params['reference']
-
-        res = []
-        full = True
-
-        if(reference == TargetRef):
-            res, full = self._find_references(wrapper.location, params['requested_level'] == LOADABLE_PREVIEW)
-            res = [self._graph.create_wrapper(loc) for loc in res]
-
-        elif(reference == InheritanceRef):
-            supers, subs = rc_get_class_hierarchy(wrapper.location)
-            for s in supers:
-                res += [self._graph.create_wrapper(SymbolLocation(*s))]
-
-        wrapper.source_of[reference.name].set(res, LOADABLE_FULL if full else LOADABLE_PREVIEW)
-
-    def load_target_of(self, params):
-        wrapper = params['wrapper']
-        reference = params['reference']
-
-        res = []
-        full = True
-
-        if(reference == TargetRef):
-            res, full = self._find_referenced_by(wrapper.location, params['requested_level'] == LOADABLE_PREVIEW)
-            res = [self._graph.create_wrapper(loc) for loc in res]
-
-        elif(reference == InheritanceRef):
-            supers, subs = rc_get_class_hierarchy(wrapper.location)
-            for s in subs:
-                res += [self._graph.create_wrapper(SymbolLocation(*s))]
-
-        wrapper.target_of[reference.name].set(res, LOADABLE_FULL if full else LOADABLE_PREVIEW)
+```py
+class SymbolLocation:
+    def __init__(self, filename, start_line, start_col, end_line=None, end_col=None)
 ```
+
+describes the location and extent of a symbol. end_col is not included. Serves as primary key for symbols.
+
+```py
+class Symbol:
+    def __init__(self, name, kind)
+```
+
+is the base class for all nodes in the graph (meant to be subclassed in the implementation of a Source). 
+Name is a readable (non-unique) identifier, and kind some readable additional information. 
+Both attributes are only used for rendering the symbol and do not impact the way NVimbols behaves. For example,
+the declaration of a method `test` might have result in a `Symbol("test", "Method Declaration")`
+
+```py
+class Reference:
+    def __init__(self, from_symbol, to_symbol)
+```
+
+is the base class for all edges in the graph. NVimbols comes with three implementations of this:
+
+- `TargetRefrence`: Most basic reference, e.g. a function call usually has an edged pointed to the function
+  declaration.
+- `ParentReference`: A method declaration points to the surrounding class declaration.
+- `InheritanceReference`: An overridden method points to the method it overrides or a subclass to its superclass.
+
+However, a source may create many more or choose not to support some of the above.
+
+### Source classes
+
+All source need to derive from
+
+```py
+class Base:
+    def __init__(self, vim)
+
+    @abstractmethod
+    def load_symbol(self, params)
+
+    @abstractmethod
+    def load_source_of(self, params)
+
+    @abstractmethod
+    def load_target_of(self, params)
+
+    def render(self, wrapper)
+    def render_denite(self, wrapper)
+```
+
+`vim` is the neovim object, used for example to retrieve configuration from `init.vim`.
+
+#### Constructor
+
+`vim` will be stored in `self._vim`. In the constructor a source is supposed to set its configuration:
+
+- `self.name`: Name of the source,
+- `self.filetypes`: ViM filetypes it supports. The source will not be called on files of other types,
+- `self.references`: `Reference` instances the source supports
+- `self.tasks`: Maximum number of different threads simultaneously calling methods on the source. Set to 1 for
+   non-threadsafe sources.
+
 
