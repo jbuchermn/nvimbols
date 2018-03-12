@@ -3,6 +3,7 @@ from nvimbols.job_queue import JobQueue
 from nvimbols.symbol import Symbol
 from nvimbols.request import LoadSymbolRequest
 from nvimbols.symbol import LoadableState
+from nvimbols.sub_graph_file import SubGraphFile
 
 
 class Graph(Observable):
@@ -29,6 +30,14 @@ class Graph(Observable):
         """
         self._empty = []
 
+        """
+        List of SubGraphFile
+        """
+        self._files = []
+
+    def symbols(self):
+        return self._symbols
+
     def cancel(self):
         self._queue.cancel()
 
@@ -39,18 +48,26 @@ class Graph(Observable):
         if self._source.request(request):
             request.fulfill()
 
-    def symbol(self, location, symbol=None):
+    def symbol(self, location, symbol_class=None):
         for s in self._symbols:
             if s.location.contains(location):
                 return s
 
-        if symbol is not None:
-            if not isinstance(symbol, Symbol):
-                raise Exception("All symbols must inherit from Symbol")
-            symbol._graph = self
+        if symbol_class is not None:
+            symbol = symbol_class(self, location)
             self._symbols += [symbol]
+            return symbol
 
-        return symbol
+        return None
+
+    def sub_graph_file(self, filename):
+        for s in self._files:
+            if s.filename == filename:
+                return s
+
+        sub_graph_file = SubGraphFile(self, filename)
+        self._files += [sub_graph_file]
+        return sub_graph_file
 
     def empty(self, location):
         self._empty += [location]
@@ -65,10 +82,17 @@ class Graph(Observable):
             if loc.contains(location):
                 return
 
-        if self.symbol(location) is not None:
-            return
+        symbol = self.symbol(location)
+        if symbol is not None:
+            if symbol.state() == LoadableState.FULL:
+                return
 
         self.on_request(LoadSymbolRequest(self, LoadableState.FULL, location))
+
+    def request_file(self, filename):
+        sub_graph = self.sub_graph_file(filename)
+        sub_graph.request(LoadableState.FULL)
+
 
 
 

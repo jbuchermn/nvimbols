@@ -1,20 +1,6 @@
-from enum import Enum
-from functools import total_ordering
+from nvimbols.loadable_state import LoadableState
 from nvimbols.reference import Reference
 from nvimbols.request import LoadSymbolRequest, LoadReferencesRequest
-
-
-@total_ordering
-class LoadableState(Enum):
-    NOT_LOADED = 0
-    PREVIEW = 1
-    FULL = 2
-
-    def __lt__(self, other):
-        if type(self) != type(other):
-            return NotImplemented
-
-        return self.value < other.value
 
 
 class Symbol:
@@ -22,12 +8,12 @@ class Symbol:
     Base class for all nodes.
     Meant to be subclassed within the specific source.
     """
-    def __init__(self, location):
+    def __init__(self, graph, location):
         self.location = location
         self.name = ""
         self.kind = ""
 
-        self._graph = None
+        self._graph = graph
         self._references = []
 
         self._state = LoadableState.NOT_LOADED

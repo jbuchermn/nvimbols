@@ -80,8 +80,8 @@ describes the location and extent of a symbol. end_col is not included. Serves a
 
 ```py
 class Symbol:
-    def __init__(self, location):
-        self.location = location
+    def __init__(self, ...):
+        self.location = ...
         self.name = ""
         self.kind = ""
 
@@ -93,12 +93,13 @@ class Symbol:
 is the base class for all nodes in the graph (meant to be subclassed in the implementation of a Source). 
 Name is a readable (non-unique) identifier, and kind some readable additional information. 
 Both attributes are only used for rendering the symbol and do not impact the way NVimbols behaves. For example,
-the declaration of a method `test` might result in a `Symbol(Location(...), "test", "Method Declaration")`.
+the declaration of a method `test` might result in `name="test", kind="Method Declaration"`.
 Also, when providing a custom renderer, `name` and `kind` need not be set.
 
 `reference_from` and `reference_to` attach an edge from or to `symbol`. These don't need to be called on both symbols.
 References of the same class between the two same nodes are considered identical and will not be attached twice. The
 reference (new or already existing) will be returned by `reference_from` and `reference_to`.
+
 
 ```py
 class Reference:
@@ -123,21 +124,22 @@ have a no arguments constructor.
 
 ```py
 class Graph:
-    def symbol(self, location, symbol=None)
+    def symbol(self, location, symbol_class=None)
     def empty(self, location)
 ```
 
-is the main object. Any new symbol created by the source needs to be registered by calling `graph.symbol`. If the graph
-already knows a symbol at this location, this method returns the old object and discards the new one, otherwise the new
-one is registered. Calling the mthod with `symbol=None` can be used to query the graph, whether there is a symbol at
+is the main object. Any new symbol needs to be created by the graph through a call to `graph.symbol`. If the graph
+already knows a symbol at this location, this method returns it, otherwise a new one of class `symbol_class`is created.
+Calling the mthod with `symbol_class=None` can be used to query the graph, whether there is a symbol at
 this location. In all cases the return value of `symbol` needs to be used!
 
 Example:
 
 ```py
-symbol = MySymbol(location, "test", "MethodDeclaration")
-symbol = graph.symbol(symbol.location, symbol)
+symbol = graph.symbol(Location(...), MySymbol)
 
+symbol.name = "test"
+symbol.kind = "Method Declaration"
 symbol.reference_to(...)
 ...
 ```
@@ -161,6 +163,8 @@ class Base:
 
     def render(self, symbol)
     def render_denite(self, symbol)
+    def render_sub_graph(self, sub_graph)
+    def render_sub_graph_denite(self, sub_graph)
 ```
 
 `_vim` is the neovim object, used for example to retrieve configuration from `init.vim`. `render` and `render_denite` can
@@ -192,7 +196,7 @@ class Request:
 ```
 
 `self.graph` is the `Graph` object to be changed by the request. `state` provides a way to preview certain information
-(f. e. a class might be used in many places, but this might not be of interest. Instead we don't want to wait a
+(f.e. a class might be used in many places, but this might not be of interest. Instead we don't want to wait a
 horrendous amount of time for the request to finish and preview this list of usages). `state` is an instance of the
 enum
 
@@ -235,15 +239,16 @@ NVimbols will keep on requesting leading to massive resource usage):
 
 - `LoadSymbolRequest`: Fill in `name`, `kind` and similar information,
 - `LoadReferencesRequest`: Load references from or to the symbol,
-- `LoadAllSymbolsInFileRequest`: Load all symbols of intrest (usually declarations) in a file.
+- `LoadSubGraphFileRequest`: Load all symbols of interest (usually declarations) in a file.
 
 ### Class `LoadSymbolRequest`
 
 ### Class `LoadReferencesRequest`
 
-### Class `LoadAllSymbolsInFileRequest`
+### Class `LoadSubGraphFileRequest`
 
 ### Custom rendering
 
-Overriding `render` and/or `render_denite` can be used to implement custom rendering. See `Base` for a reference
+Overriding `render[_...]` can be used to implement custom rendering. See `Base` for a reference
 implementation. This part of the API is not yet stable and might be moved from `Source` to `Symbol`.
+

@@ -122,9 +122,8 @@ class Base:
                 symbol.request()
                 return None
 
-            info = symbol.kind
             result += [{
-                'word': fit(title, title_length) + fit(info, kind_length) + str(symbol.location),
+                'word': fit(title, title_length) + fit(symbol.kind, kind_length) + str(symbol.location),
                 'action__path': symbol.location.filename,
                 'action__line': symbol.location.start_line,
                 'action__col': symbol.location.start_col,
@@ -157,8 +156,53 @@ class Base:
 
         return result
 
+    def render_sub_graph(self, sub_graph):
+        if not sub_graph.state() == LoadableState.FULL:
+            sub_graph.request()
 
+        """
+        TODO
+        Find ultimate targets of ParentReference.. render children and grandchildren
+        """
 
+        return Content()
+
+    def render_sub_graph_denite(self, sub_graph):
+        if not sub_graph.state() == LoadableState.FULL:
+            sub_graph.request()
+            return DeniteContent()
+
+        result = DeniteContent()
+        result.set_complete()
+
+        name_length = 28
+        kind_length = 12
+
+        def fit(text, length):
+            if len(text) > length:
+                return text[:length]
+            else:
+                return text.ljust(length, ' ')
+
+        def symbol_to_candidate(symbol, result):
+            if symbol.state() < LoadableState.FULL:
+                result.set_complete(False)
+                symbol.request()
+                return None
+
+            result += [{
+                'word': fit(symbol.name, name_length) + fit(symbol.kind, kind_length) + str(symbol.location),
+                'action__path': symbol.location.filename,
+                'action__line': symbol.location.start_line,
+                'action__col': symbol.location.start_col,
+                'action__text': str(symbol.location),
+                '__hash': hash(symbol.location)
+            }]
+
+        for symbol in sub_graph.symbols():
+            symbol_to_candidate(symbol, result)
+
+        return result
 
 
 

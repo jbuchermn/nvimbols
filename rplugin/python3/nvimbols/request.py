@@ -40,9 +40,10 @@ class LoadReferencesRequest(Request):
             self.symbol.fulfill_target_of(self.reference_class, self.state)
 
 
-"""
-TODO
-"""
+class LoadSubGraphFileRequest(Request):
+    def __init__(self, sub_graph, state):
+        super().__init__(sub_graph.graph, state)
+        self.sub_graph = sub_graph
 
-class LoadAllSymbolsInFileRequest(Request):
-    pass
+    def fulfill(self):
+        self.sub_graph.fulfill(self.state)

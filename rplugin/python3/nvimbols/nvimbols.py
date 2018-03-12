@@ -69,8 +69,8 @@ class NVimbols(Observable):
         elif self._mode[0] == 'help':
             return self._help_content
         elif self._mode[0] == 'list':
-            # TODO
-            return Content()
+            sub_graph = self._graph.sub_graph_file(self._current_location.filename)
+            return self._source.render_sub_graph(sub_graph)
 
     def render_denite(self, mode):
         if mode == 'symbol':
@@ -80,8 +80,8 @@ class NVimbols(Observable):
             else:
                 return DeniteContent()
         elif mode == 'list':
-            # TODO
-            return DeniteContent()
+            sub_graph = self._graph.sub_graph_file(self._current_location.filename)
+            return self._source.render_sub_graph_denite(sub_graph)
 
     def get_at_current_location(self):
         return self._graph.symbol(self._current_location)
