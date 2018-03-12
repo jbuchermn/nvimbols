@@ -1,64 +1,148 @@
-class SymbolLocation:
-    """
-    Includes lines start_line... end_line and columns start_col... end_col-1
-    """
-    def __init__(self, filename, start_line, start_col, end_line=None, end_col=None):
-        if(end_line is None):
-            end_line = start_line
-        if(end_col is None):
-            end_col = start_col + 1
+from enum import Enum
+from functools import total_ordering
+from nvimbols.reference import Reference
+from nvimbols.request import LoadSymbolRequest, LoadReferencesRequest
 
-        self.filename = filename
-        self.start_line = start_line
-        self.end_line = end_line
-        self.start_col = start_col
-        self.end_col = end_col
 
-    def contains(self, other):
-        if(self.filename != other.filename):
-            return False
+@total_ordering
+class LoadableState(Enum):
+    NOT_LOADED = 0
+    PREVIEW = 1
+    FULL = 2
 
-        return (self.start_line <= other.start_line and
-                (self.end_line == -1 or self.end_line >= other.end_line) and
-                (self.start_line < other.start_line or (self.start_col <= other.start_col)) and
-                ((self.end_line == -1 or self.end_line > other.end_line) or (self.end_col == -1 or self.end_col >= other.end_col)))
+    def __lt__(self, other):
+        if type(self) != type(other):
+            return NotImplemented
 
-    def __str__(self):
-        return "%s:%i:%i:%i:%i" % (self.filename, self.start_line, self.start_col, self.end_line, self.end_col)
-
-    def __repr__(self):
-        return self.__str__()
-
-    def __hash__(self):
-        return hash(self.__repr__())
-
-    def __eq__(self, other):
-        return self.__hash__() == other.__hash__()
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
+        return self.value < other.value
 
 
 class Symbol:
     """
-    Meant to be subclassed within the specific source, plain old data object.
+    Base class for all nodes.
+    Meant to be subclassed within the specific source.
     """
-    def __init__(self, name, kind):
-        self.name = name
-        self.kind = kind
+    def __init__(self, location):
+        self.location = location
+        self.name = ""
+        self.kind = ""
 
-        """
-        Dictionary rendered as Key: Value
-        """
-        self.data = {}
+        self._graph = None
+        self._references = []
+
+        self._state = LoadableState.NOT_LOADED
+        self._state_source_of = {}
+        self._state_target_of = {}
 
     def __str__(self):
         return "Symbol(%s): %s" % (self.name, self.kind)
 
+    """
+    Graph related functionality
+    """
 
+    def reference_to(self, reference, symbol):
+        if id(self) == id(symbol):
+            raise Exception("Circular reference")
 
+        if symbol is None:
+            raise Exception("Reference to None")
 
+        if not isinstance(symbol, Symbol):
+            raise Exception("All symbols must inherit from Symbol")
 
+        if not isinstance(reference, Reference):
+            raise Exception("All references must inherit from Reference")
+
+        reference._graph = self._graph
+        reference._from = self
+        reference._to = symbol
+
+        for r in self._references:
+            if r == reference:
+                return r
+
+        self._references += [reference]
+        symbol._references += [reference]
+
+        return reference
+
+    def reference_from(self, reference, symbol):
+        if id(self) == (symbol):
+            raise Exception("Circular reference")
+
+        if symbol is None:
+            raise Exception("Reference from None")
+
+        if not isinstance(symbol, Symbol):
+            raise Exception("All symbols must inherit from Symbol")
+
+        if not isinstance(reference, Reference):
+            raise Exception("All references must inherit from Reference")
+
+        for r in self._references:
+            if r == reference:
+                return r
+
+        self._references += [reference]
+        symbol._references += [reference]
+        reference._graph = self._graph
+        reference._from = symbol
+        reference._to = self
+
+        return reference
+
+    def delete_reference(self, reference):
+        self._references.remove(reference)
+        if id(reference._to) == id(self) and reference._from is not None:
+            reference._from.delete_reference(reference)
+        if id(reference._from) == id(self) and reference._to is not None:
+            reference._to.delete_reference(reference)
+
+    """
+    Request related functionality
+    """
+
+    def state(self):
+        return self._state
+
+    def state_source_of(self, reference_class):
+        if not str(reference_class) in self._state_source_of:
+            self._state_source_of[str(reference_class)] = LoadableState.NOT_LOADED
+
+        return self._state_source_of[str(reference_class)]
+
+    def state_target_of(self, reference_class):
+        if not str(reference_class) in self._state_target_of:
+            self._state_target_of[str(reference_class)] = LoadableState.NOT_LOADED
+
+        return self._state_target_of[str(reference_class)]
+
+    def get_source_of(self, reference_class):
+        return [r for r in self._references
+                if type(r) == reference_class and id(r._from) == id(self)]
+
+    def get_target_of(self, reference_class):
+        return [r for r in self._references
+                if type(r) == reference_class and id(r._to) == id(self)]
+
+    def request(self, state=LoadableState.FULL):
+        self._graph.on_request(LoadSymbolRequest(self._graph, state, self.location))
+
+    def request_source_of(self, reference_class, state=LoadableState.FULL):
+        self._graph.on_request(LoadReferencesRequest(self._graph, state, self, reference_class, True))
+
+    def request_target_of(self, reference_class, state=LoadableState.FULL):
+        self._graph.on_request(LoadReferencesRequest(self._graph, state, self, reference_class, False))
+
+    def fulfill(self, state=LoadableState.FULL):
+        self._state = state
+
+    def fulfill_source_of(self, reference_class, state=LoadableState.FULL):
+        self._state_source_of[str(reference_class)] = state
+
+    def fulfill_target_of(self, reference_class, state=LoadableState.FULL):
+        self._state_target_of[str(reference_class)] = state
 
 
 

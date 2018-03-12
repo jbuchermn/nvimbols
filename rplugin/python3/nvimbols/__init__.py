@@ -7,7 +7,7 @@ from nvimbols.content import Content, Wrapper, Highlight
 from nvimbols.job_queue import JobQueue
 from nvimbols.util import find_rplugins, import_plugin, on_error, log
 from nvimbols.nvimbols import NVimbols
-from nvimbols.symbol import SymbolLocation
+from nvimbols.location import Location
 from nvimbols.communicator import COMM
 
 @neovim.plugin
@@ -75,9 +75,15 @@ class NVimbolsPlugin:
         Message in case selection of sources fails
         """
         self._content_if_deactivated = Content()
-        self._content_if_deactivated += Wrapper(Highlight('Title', "Nvimbols"), " could not find source for\n  filetype ", Highlight('PreProc', ft), ".\nRegistered sources are:")
+        self._content_if_deactivated += Wrapper(Highlight('Title', "Nvimbols"),
+                                                " could not find source for\n  filetype ",
+                                                Highlight('PreProc', ft),
+                                                ".\nRegistered sources are:")
         for source in self._sources:
-            self._content_if_deactivated += Wrapper("\n ", Highlight('Title', self._sources[source].name), " for \n   filetypes ", Highlight('PreProc', ", ".join(self._sources[source].filetypes)))
+            self._content_if_deactivated += Wrapper("\n ",
+                                                    Highlight('Title', self._sources[source].name),
+                                                    " for \n   filetypes ",
+                                                    Highlight('PreProc', ", ".join(self._sources[source].filetypes)))
 
         if(self._main is not None and ft in self._main.filetypes):
             return
@@ -128,10 +134,14 @@ class NVimbolsPlugin:
 
                     buf[:] = self._content.raw()
                     for highlight in self._content.highlights():
-                        buf.add_highlight(highlight.name, highlight.line - 1, highlight.start_col - 1, highlight.end_col - 1 if highlight.end_col >= 1 else -1, -1)
+                        buf.add_highlight(highlight.name,
+                                          highlight.line - 1,
+                                          highlight.start_col - 1,
+                                          highlight.end_col - 1 if highlight.end_col >= 1 else -1,
+                                          -1)
 
                     buf.api.set_option('modifiable', False)
-                
+
                 jumps = {
                     'links': self._content.links(),
                     'quickjumps': self._content.quickjumps()
@@ -161,7 +171,7 @@ class NVimbolsPlugin:
         line = args[1]
         col = args[2]
 
-        location = SymbolLocation(filename, line, col)
+        location = Location(filename, line, col)
         self._main.update_location(location)
         self._render()
 

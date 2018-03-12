@@ -1,25 +1,14 @@
-from nvimbols.symbol import SymbolLocation
-from nvimbols.util import log, on_error, on_error_wrap
-from nvimbols.loadable import Loadable
 from nvimbols.observable import Observable
 from nvimbols.job_queue import JobQueue
-import time
+from nvimbols.symbol import Symbol
+from nvimbols.request import LoadSymbolRequest
+from nvimbols.symbol import LoadableState
 
 
-class _SymbolWrapper:
-    def __init__(self, graph, location):
-        self.location = location
-
-        self.symbol = Loadable(graph, {'type': 'symbol', 'wrapper': self})
-        self.target_of = {ref.name: Loadable(graph, {'type': 'target', 'reference': ref, 'wrapper': self}) for ref in graph.references}
-        self.source_of = {ref.name: Loadable(graph, {'type': 'source', 'reference': ref, 'wrapper': self}) for ref in graph.references}
-
-
-class SymbolsGraph(Observable):
+class Graph(Observable):
     def __init__(self, source, parent):
         super().__init__()
 
-        self.references = source.references
         self._source = source
         self._parent = parent
 
@@ -31,53 +20,55 @@ class SymbolsGraph(Observable):
         self._queue.on_update(lambda: self._notify())
 
         """
-        List of _SymbolWrapper
+        List of Symbols
         """
-        self._data = []
+        self._symbols = []
+
+        """
+        List of Locations
+        """
+        self._empty = []
 
     def cancel(self):
         self._queue.cancel()
 
-    def on_request(self, loadable, params):
-        self._queue.job(lambda: self._on_request(loadable, params))
+    def on_request(self, request):
+        self._queue.job(lambda: self._on_request(request))
 
-    def _on_request(self, loadable, params):
-        if params['type'] == 'symbol':
-            self._source.load_symbol(params)
-        elif params['type'] == 'target':
-            self._source.load_target_of(params)
-        elif params['type'] == 'source':
-            self._source.load_source_of(params)
+    def _on_request(self, request):
+        if self._source.request(request):
+            request.fulfill()
 
+    def symbol(self, location, symbol=None):
+        for s in self._symbols:
+            if s.location.contains(location):
+                return s
 
-    def create_wrapper(self, location):
-        for w in self._data:
-            if w.location.contains(location) or location.contains(w.location):
-                return w
+        if symbol is not None:
+            if not isinstance(symbol, Symbol):
+                raise Exception("All symbols must inherit from Symbol")
+            symbol._graph = self
+            self._symbols += [symbol]
 
-        location = SymbolLocation(location.filename, location.start_line, location.start_col, location.end_line, location.end_col)
-        wrapper = _SymbolWrapper(self, location)
+        return symbol
 
-        self._data += [wrapper]
-        return wrapper
-
-    def get(self, location):
-        for wrapper in self._data:
-            if(wrapper.location.contains(location)):
-                return wrapper
-
-        return None
+    def empty(self, location):
+        self._empty += [location]
 
     def clear(self):
         self._queue.cancel()
-        self._data = []
+        self._symbols = []
+        self._empty = []
 
-    def require_at_location(self, location):
-        wrapper = self.get(location)
-        if(wrapper is None):
-            wrapper = self.create_wrapper(location)
+    def request(self, location):
+        for loc in self._empty:
+            if loc.contains(location):
+                return
 
-        wrapper.symbol.request()
+        if self.symbol(location) is not None:
+            return
+
+        self.on_request(LoadSymbolRequest(self, LoadableState.FULL, location))
 
 
 

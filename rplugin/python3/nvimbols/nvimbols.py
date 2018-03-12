@@ -4,7 +4,7 @@ from threading import Lock
 from nvimbols.content import Content, Wrapper, Highlight
 from nvimbols.denite_content import DeniteContent
 from nvimbols.util import log, on_error
-from nvimbols.graph import SymbolsGraph
+from nvimbols.graph import Graph
 from nvimbols.observable import Observable
 
 
@@ -37,8 +37,7 @@ class NVimbols(Observable):
         self._source = source
         self.filetypes = source.filetypes
 
-        self._graph = SymbolsGraph(self._source, self)
-        self._source.set_graph(self._graph)
+        self._graph = Graph(self._source, self)
         self._current_location = None
 
         self._help_content = setup_nvimbols_help()
@@ -62,7 +61,11 @@ class NVimbols(Observable):
 
     def render(self):
         if self._mode[0] == 'symbol':
-            return self._source.render(self._graph.get(self._current_location))
+            symbol = self._graph.symbol(self._current_location)
+            if symbol is not None:
+                return self._source.render(symbol)
+            else:
+                return Content()
         elif self._mode[0] == 'help':
             return self._help_content
         elif self._mode[0] == 'list':
@@ -71,17 +74,21 @@ class NVimbols(Observable):
 
     def render_denite(self, mode):
         if mode == 'symbol':
-            return self._source.render_denite(self._graph.get(self._current_location))
+            symbol = self._graph.symbol(self._current_location)
+            if symbol is not None:
+                return self._source.render_denite(symbol)
+            else:
+                return DeniteContent()
         elif mode == 'list':
             # TODO
             return DeniteContent()
 
     def get_at_current_location(self):
-        return self._graph.get(self._current_location)
+        return self._graph.symbol(self._current_location)
 
     def update_location(self, location):
         self._current_location = location
-        self._graph.require_at_location(location)
+        self._graph.request(location)
         self.render()
 
     def command(self, command):
