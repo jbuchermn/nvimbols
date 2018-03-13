@@ -104,14 +104,6 @@ class Symbol:
 
         return self._state_target_of[str(reference_class)]
 
-    def get_source_of(self, reference_class):
-        return [r for r in self._references
-                if type(r) == reference_class and id(r._from) == id(self)]
-
-    def get_target_of(self, reference_class):
-        return [r for r in self._references
-                if type(r) == reference_class and id(r._to) == id(self)]
-
     def request(self, state=LoadableState.FULL):
         self._graph.on_request(LoadSymbolRequest(self._graph, state, self.location))
 
@@ -130,8 +122,17 @@ class Symbol:
     def fulfill_target_of(self, reference_class, state=LoadableState.FULL):
         self._state_target_of[str(reference_class)] = state
 
+    """
+    Getters - not to be called inside Sources
+    """
 
+    def _get_source_of(self, reference_class):
+        return [r for r in self._references
+                if type(r) == reference_class and id(r._from) == id(self)]
 
+    def _get_target_of(self, reference_class):
+        return [r for r in self._references
+                if type(r) == reference_class and id(r._to) == id(self)]
 
 
 

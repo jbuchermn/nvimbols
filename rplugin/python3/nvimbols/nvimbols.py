@@ -60,35 +60,20 @@ class NVimbols(Observable):
         self._graph.cancel()
 
     def render(self):
-        if self._mode[0] == 'symbol':
-            symbol = self._graph.symbol(self._current_location)
-            if symbol is not None:
-                return self._source.render(symbol)
-            else:
-                return Content()
-        elif self._mode[0] == 'help':
+        if self._mode[0] == 'help':
             return self._help_content
-        elif self._mode[0] == 'list':
-            sub_graph = self._graph.sub_graph_file(self._current_location.filename)
-            return self._source.render_sub_graph(sub_graph)
+        else:
+            return self._source.render(self._graph, self._current_location, self._mode[0])
 
     def render_denite(self, mode):
-        if mode == 'symbol':
-            symbol = self._graph.symbol(self._current_location)
-            if symbol is not None:
-                return self._source.render_denite(symbol)
-            else:
-                return DeniteContent()
-        elif mode == 'list':
-            sub_graph = self._graph.sub_graph_file(self._current_location.filename)
-            return self._source.render_sub_graph_denite(sub_graph)
+        return self._source.render_denite(self._graph, self._current_location, mode)
 
     def get_at_current_location(self):
         return self._graph.symbol(self._current_location)
 
     def update_location(self, location):
         self._current_location = location
-        self._graph.request(location)
+        self._graph.request_at(location)
         self.render()
 
     def command(self, command):

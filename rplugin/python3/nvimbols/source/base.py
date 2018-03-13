@@ -23,13 +23,41 @@ class Base:
     def request(self, req):
         pass
 
-    def render(self, symbol):
-        """
-        Method returns a Content instance
+    def render(self, graph, cursor_location, mode):
+        def loading():
+            content = Content()
+            content += "..."
+            return content
 
-        Override this method to implement custom rendering.
-        Data not yet fetched can be request()ed; once it is loaded, render will be called again.
-        """
+        def render_list(graph, filename):
+            sub_graph_file = graph.sub_graph_file(filename)
+            if sub_graph_file.state() < LoadableState.PREVIEW:
+                sub_graph_file.request()
+                return loading()
+            else:
+                return self.render_list(graph, sub_graph_file)
+
+        def render_symbol(graph, cursor_location):
+            symbol = graph.symbol(cursor_location)
+            if symbol is None:
+                graph.request_at(cursor_location)
+                return loading()
+            else:
+                return self.render_symbol(graph, symbol)
+
+        if mode == 'symbol':
+            if graph.is_empty(cursor_location):
+                return render_list(graph, cursor_location.filename)
+            else:
+                return render_symbol(graph, cursor_location)
+
+        elif mode == 'list':
+            return render_list(graph, cursor_location.filename)
+
+        else:
+            raise Exception("Unsupported mode: %s" % mode)
+
+    def render_symbol(self, graph, symbol):
         content = Content()
 
         def max_slice(n, arr):
@@ -57,17 +85,17 @@ class Base:
                     content += "..."
                     symbol.request_source_of(reference_class, LoadableState.PREVIEW)
                 else:
-                    arr = symbol.get_source_of(reference_class)
+                    arr = graph.source_of(symbol, reference_class)
                     is_preview = symbol.state_source_of(reference_class) < LoadableState.FULL or (len(arr) > 100)
 
                     if len(arr) > 0:
-                        content.add_quickjump("first_source_of_%s" % ref.name, arr[0]._to.location)
+                        content.add_quickjump("first_source_of_%s" % ref.name, arr[0].location)
 
                     for w in max_slice(100, arr):
-                        content += Link(w._to.location,
+                        content += Link(w.location,
                                         Highlight('Type',
-                                                  "%s:%i\n" % (os.path.basename(w._to.location.filename),
-                                                               w._to.location.start_line)))
+                                                  "%s:%i\n" % (os.path.basename(w.location.filename),
+                                                               w.location.start_line)))
                     if is_preview:
                         content += Highlight('PreProc', "[...]\n")
 
@@ -80,30 +108,68 @@ class Base:
                     content += "..."
                     symbol.request_target_of(reference_class, LoadableState.PREVIEW)
                 else:
-                    arr = symbol.get_target_of(reference_class)
+                    arr = graph.target_of(symbol, reference_class)
                     is_preview = symbol.state_target_of(reference_class) < LoadableState.FULL or (len(arr) > 100)
 
                     if len(arr) > 0:
-                        content.add_quickjump("first_source_of_%s" % ref.name, arr[0]._from.location)
+                        content.add_quickjump("first_source_of_%s" % ref.name, arr[0].location)
 
                     for w in max_slice(100, arr):
-                        content += Link(w._to.location,
+                        content += Link(w.location,
                                         Highlight('Type',
-                                                  "%s:%i\n" % (os.path.basename(w._from.location.filename),
-                                                               w._from.location.start_line)))
+                                                  "%s:%i\n" % (os.path.basename(w.location.filename),
+                                                               w.location.start_line)))
                     if is_preview:
                         content += Highlight('PreProc', "[...]\n")
 
         return content
 
-    def render_denite(self, symbol):
-        """
-        Method returns denite candidates as list.
+    def render_list(self, graph, sub_graph):
+        if not sub_graph.state() == LoadableState.FULL:
+            sub_graph.request()
 
-        Override this method to implement custom rendering.
-        If we are still waiting for data, set result.set_complete(False), otherwise True. Defaults to False.
-        Every candidate needs to include a __hash which uniquely identifies this candidate among all candidates
         """
+        TODO
+        Find ultimate targets of ParentReference.. render children and grandchildren
+        """
+
+        return Content()
+
+    def render_denite(self, graph, cursor_location, mode):
+        def loading():
+            content = DeniteContent()
+            content.set_complete(False)
+            return content
+
+        def render_list(graph, filename):
+            sub_graph_file = graph.sub_graph_file(filename)
+            if sub_graph_file.state() < LoadableState.PREVIEW:
+                sub_graph_file.request()
+                return loading()
+            else:
+                return self.render_denite_list(graph, sub_graph_file)
+
+        def render_symbol(graph, cursor_location):
+            symbol = graph.symbol(cursor_location)
+            if symbol is None:
+                graph.request_at(cursor_location)
+                return loading()
+            else:
+                return self.render_denite_symbol(graph, symbol)
+
+        if mode == 'symbol':
+            if graph.is_empty(cursor_location):
+                return render_list(graph, cursor_location.filename)
+            else:
+                return render_symbol(graph, cursor_location)
+
+        elif mode == 'list':
+            return render_list(graph, cursor_location.filename)
+
+        else:
+            raise Exception("Unsupported mode: %s" % mode)
+
+    def render_denite_symbol(self, graph, symbol):
         result = DeniteContent()
         result.set_complete()
 
@@ -141,8 +207,8 @@ class Base:
                 result.set_complete(False)
                 symbol.request_source_of(reference_class)
             else:
-                for w in symbol.get_source_of(reference_class):
-                    symbol_to_candidate(w._to, ref.display_targets, result)
+                for w in graph.source_of(symbol, reference_class):
+                    symbol_to_candidate(w, ref.display_targets, result)
 
             """
             Render target of
@@ -151,23 +217,12 @@ class Base:
                 result.set_complete(False)
                 symbol.request_target_of(reference_class)
             else:
-                for w in symbol.get_target_of(reference_class):
-                    symbol_to_candidate(w._from, ref.display_sources, result)
+                for w in graph.target_of(symbol, reference_class):
+                    symbol_to_candidate(w, ref.display_sources, result)
 
         return result
 
-    def render_sub_graph(self, sub_graph):
-        if not sub_graph.state() == LoadableState.FULL:
-            sub_graph.request()
-
-        """
-        TODO
-        Find ultimate targets of ParentReference.. render children and grandchildren
-        """
-
-        return Content()
-
-    def render_sub_graph_denite(self, sub_graph):
+    def render_denite_list(self, graph, sub_graph):
         if not sub_graph.state() == LoadableState.FULL:
             sub_graph.request()
             return DeniteContent()
@@ -199,7 +254,7 @@ class Base:
                 '__hash': hash(symbol.location)
             }]
 
-        for symbol in sub_graph.symbols():
+        for symbol in sub_graph.nodes():
             symbol_to_candidate(symbol, result)
 
         return result

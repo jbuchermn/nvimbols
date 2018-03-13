@@ -1,14 +1,15 @@
 from nvimbols.observable import Observable
 from nvimbols.job_queue import JobQueue
-from nvimbols.symbol import Symbol
 from nvimbols.request import LoadSymbolRequest
 from nvimbols.symbol import LoadableState
+from nvimbols.base_graph import BaseGraph
 from nvimbols.sub_graph_file import SubGraphFile
 
 
-class Graph(Observable):
+class Graph(Observable, BaseGraph):
     def __init__(self, source, parent):
-        super().__init__()
+        Observable.__init__(self)
+        BaseGraph.__init__(self)
 
         self._source = source
         self._parent = parent
@@ -35,18 +36,45 @@ class Graph(Observable):
         """
         self._files = []
 
-    def symbols(self):
+    """
+    BaseGraph functionality
+    """
+
+    def nodes(self):
         return self._symbols
 
-    def cancel(self):
-        self._queue.cancel()
+    def edge_classes(self):
+        return self._source.references
+
+    def source_of(self, node, edge_class):
+        if node not in self._symbols:
+            raise Exception("Invalid request")
+
+        return [n._to for n in node._get_source_of(edge_class)]
+
+    def target_of(self, node, edge_class):
+        if node not in self._symbols:
+            raise Exception("Invalid request")
+
+        return [n._from for n in node._get_target_of(edge_class)]
+
+    """
+    Queue functionality
+    """
 
     def on_request(self, request):
         self._queue.job(lambda: self._on_request(request))
 
+    def cancel(self):
+        self._queue.cancel()
+
     def _on_request(self, request):
         if self._source.request(request):
             request.fulfill()
+
+    """
+    Object creation and access
+    """
 
     def symbol(self, location, symbol_class=None):
         for s in self._symbols:
@@ -60,6 +88,16 @@ class Graph(Observable):
 
         return None
 
+    def empty(self, location):
+        self._empty += [location]
+
+    def is_empty(self, location):
+        for loc in self._empty:
+            if loc.contains(location):
+                return True
+
+        return False
+
     def sub_graph_file(self, filename):
         for s in self._files:
             if s.filename == filename:
@@ -69,18 +107,19 @@ class Graph(Observable):
         self._files += [sub_graph_file]
         return sub_graph_file
 
-    def empty(self, location):
-        self._empty += [location]
+    """
+    Interface to NVimbols
+    """
 
     def clear(self):
         self._queue.cancel()
         self._symbols = []
         self._empty = []
+        self._files = []
 
-    def request(self, location):
-        for loc in self._empty:
-            if loc.contains(location):
-                return
+    def request_at(self, location):
+        if self.is_empty(location):
+            return
 
         symbol = self.symbol(location)
         if symbol is not None:

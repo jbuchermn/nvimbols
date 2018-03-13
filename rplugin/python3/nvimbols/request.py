@@ -41,8 +41,8 @@ class LoadReferencesRequest(Request):
 
 
 class LoadSubGraphFileRequest(Request):
-    def __init__(self, sub_graph, state):
-        super().__init__(sub_graph.graph, state)
+    def __init__(self, graph, sub_graph, state):
+        super().__init__(graph, state)
         self.sub_graph = sub_graph
 
     def fulfill(self):

@@ -9,15 +9,15 @@ class SubGraphFile(SubGraph):
         self.filename = filename
         self._state = LoadableState.NOT_LOADED
 
+    """
+    Request related functionality
+    """
+
     def state(self):
         return self._state
 
     def request(self, state=LoadableState.FULL):
-        self.graph.on_request(LoadSubGraphFileRequest(self, state))
+        self._graph.on_request(LoadSubGraphFileRequest(self._graph, self, state))
 
     def fulfill(self, state=LoadableState.FULL):
         self._state = state
-
-    def symbols(self):
-        return [s for s in self.graph.symbols() if self.include(s)]
-
