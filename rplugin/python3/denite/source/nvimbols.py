@@ -7,11 +7,12 @@ class Source(Base):
     def __init__(self, vim):
         super().__init__(vim)
 
-        self.name = 'nvimbols_list'
+        self.name = 'nvimbols'
         self.kind = 'file'
         self.vars = {}
         self.matchers = ['matcher_fuzzy']
 
+        self._mode = None
         self._content = None
         self._candidate_hashes = []
         self._new_candidates = []
@@ -20,7 +21,7 @@ class Source(Base):
         self._nvimbols_obsid = None
 
     def render(self):
-        self._content = self._nvimbols.render_denite('list')
+        self._content = self._nvimbols.render_denite(self._mode)
 
         new_candidates = []
         for c in self._content.get_candidates():
@@ -36,6 +37,7 @@ class Source(Base):
         self._nvimbols = COMM.get('NVimbols')
         self._nvimbols_obsid = self._nvimbols.on_update(lambda: self.render())
 
+        self._mode = context['args'][0] if len(context['args']) != 0 else 'symbol'
         self._new_candidates = []
         self._candidate_hashes = []
         self.render()
