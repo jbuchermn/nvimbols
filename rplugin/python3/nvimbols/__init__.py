@@ -1,7 +1,7 @@
 import neovim
 import os
-import time
-from threading import Lock, Thread, Timer
+from threading import Lock, Thread
+import fnmatch
 
 from nvimbols.content import Content, Wrapper, Highlight
 from nvimbols.job_queue import JobQueue
@@ -10,6 +10,7 @@ from nvimbols.nvimbols import NVimbols
 from nvimbols.location import Location
 from nvimbols.communicator import COMM
 
+
 @neovim.plugin
 class NVimbolsPlugin:
     def __init__(self, vim):
@@ -17,6 +18,7 @@ class NVimbolsPlugin:
         self._config = {}
         self._main = None
         self._sources = None
+        self._renderers = None
         self._lock = Lock()
 
         self._content_if_deactivated = Content()
@@ -72,24 +74,58 @@ class NVimbolsPlugin:
                     on_error(self._vim, err)
 
         """
+        Initialise renderers
+        """
+        if(self._renderers is None):
+            log("Initialising NVimbols renderers...")
+            self._renderers = {}
+
+            for path in find_rplugins(self._config['rtp']):
+                name = os.path.splitext(os.path.basename(path))[0]
+                source = None
+                try:
+                    Renderer = import_plugin(path, 'renderer', 'Renderer')
+                    if not Renderer:
+                        continue
+
+                    renderer = Renderer(self._vim)
+                    renderer.name = getattr(renderer, 'name', name)
+                    renderer.path = path
+
+                    log("  <> found renderer %s for sources %s" % (renderer.name, renderer.sources))
+
+                    self._renderers[renderer.name] = renderer
+
+                except Exception as err:
+                    on_error(self._vim, err)
+
+        """
         Message in case selection of sources fails
         """
         self._content_if_deactivated = Content()
         self._content_if_deactivated += Wrapper(Highlight('Title', "Nvimbols"),
-                                                " could not find source for\n  filetype ",
-                                                Highlight('PreProc', ft),
-                                                ".\nRegistered sources are:")
+                                                " could not find source and/or renderer for\n  filetype ",
+                                                Highlight('PreProc', ft))
+
+        self._content_if_deactivated += ".\n\nRegistered sources are:"
         for source in self._sources:
             self._content_if_deactivated += Wrapper("\n ",
                                                     Highlight('Title', self._sources[source].name),
                                                     " for \n   filetypes ",
                                                     Highlight('PreProc', ", ".join(self._sources[source].filetypes)))
 
+        self._content_if_deactivated += ".\n\nRegistered renderers are:"
+        for renderer in self._renderers:
+            self._content_if_deactivated += Wrapper("\n ",
+                                                    Highlight('Title', self._renderers[renderer].name),
+                                                    " for \n   sources ",
+                                                    Highlight('PreProc', ", ".join(self._renderers[renderer].sources)))
+
         if(self._main is not None and ft in self._main.filetypes):
             return
 
         """
-        Select source and start NVimbols
+        Select source and renderer, start NVimbols
         """
         log("Initialising NVimbols for filetype %s..." % ft)
 
@@ -98,13 +134,27 @@ class NVimbolsPlugin:
             if(ft in self._sources[s].filetypes):
                 possible_sources += [self._sources[s]]
 
-        selected_source = None
-        if(len(possible_sources) != 0):
-            selected_source = possible_sources[0]
+        def find_renderers(source):
+            res = []
+            for r in self._renderers:
+                for s in self._renderers[r].sources:
+                    if fnmatch.fnmatch(source.name, s):
+                        res += [self._renderers[r]]
+                        break
+            return res
 
-        if(selected_source is not None):
+        possible_sources = [s for s in possible_sources if len(find_renderers(s)) != 0]
+
+        selected_source = None
+        selected_renderer = None
+        if len(possible_sources) != 0:
+            selected_source = possible_sources[0]
+            selected_renderer = find_renderers(selected_source)[0]
+
+        if selected_source is not None and selected_renderer is not None:
             log("  <> selected source: %s" % selected_source.name)
-            self._main = NVimbols(self, selected_source)
+            log("  <> selected renderer: %s" % selected_renderer.name)
+            self._main = NVimbols(self, selected_source, selected_renderer)
 
             """
             Enable automatic rendering

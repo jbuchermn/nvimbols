@@ -14,21 +14,17 @@ from importlib.machinery import SourceFileLoader
 
 def find_rplugins(rtp):
     """
-    Search for *.py in VIMRUNTIME/*/rplugin/python3/nvimbols/sources/
+    Search for *.py in VIMRUNTIME/*/rplugin/python3/nvimbols/**/*
     """
     rtp = rtp.split(',')
     if not rtp:
         return
 
-    for src in ['rplugin/python3/nvimbols/sources/*.py', 'rplugin/python3/nvimbols/sources/**/*.py']:
-        for path in rtp:
-            yield from glob.iglob(os.path.join(path, src))
+    for path in rtp:
+        yield from glob.iglob(os.path.join(path, 'rplugin/python3/nvimbols/**/*.py'))
 
 
 def import_plugin(path, source, classname):
-    """
-    Import NVimbols source class if the class exists, add its directory to sys.path.
-    """
     name = os.path.splitext(os.path.basename(path))[0]
     module_name = 'nvimbols.%s.%s' % (source, name)
 

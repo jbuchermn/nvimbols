@@ -30,11 +30,12 @@ def setup_nvimbols_help():
 
 
 class NVimbols(Observable):
-    def __init__(self, parent, source):
+    def __init__(self, parent, source, renderer):
         super().__init__()
 
         self._parent = parent
         self._source = source
+        self._renderer = renderer
         self.filetypes = source.filetypes
 
         self._graph = Graph(self._source, self)
@@ -63,10 +64,10 @@ class NVimbols(Observable):
         if self._mode[0] == 'help':
             return self._help_content
         else:
-            return self._source.render(self._graph, self._current_location, self._mode[0])
+            return self._renderer.render(self._graph, self._current_location, self._mode[0])
 
     def render_denite(self, mode):
-        return self._source.render_denite(self._graph, self._current_location, mode)
+        return self._renderer.render_denite(self._graph, self._current_location, mode)
 
     def get_at_current_location(self):
         return self._graph.symbol(self._current_location)
