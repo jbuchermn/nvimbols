@@ -150,7 +150,7 @@ will keep asking the source for the symbol at this location if the cursor is mov
 
 ## Source classes
 
-All source need to derive from
+All source need to derive from `nvimbols.source.Base`
 
 ```py
 class Base:
@@ -160,11 +160,6 @@ class Base:
 
     @abstractmethod
     def request(self, req)
-
-    def render(self, symbol)
-    def render_denite(self, symbol)
-    def render_sub_graph(self, sub_graph)
-    def render_sub_graph_denite(self, sub_graph)
 ```
 
 `_vim` is the neovim object, used for example to retrieve configuration from `init.vim`. `render` and `render_denite` can
@@ -249,6 +244,5 @@ NVimbols will keep on requesting leading to massive resource usage):
 
 ### Custom rendering
 
-Overriding `render[_...]` can be used to implement custom rendering. See `Base` for a reference
-implementation. This part of the API is not yet stable and might be moved from `Source` to `Symbol`.
+See `nvimbols.renderer.Base`. Not yet stable API. Changes on a commit basis.
 
