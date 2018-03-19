@@ -1,5 +1,7 @@
 import os
+from nvimbols.util import log
 from nvimbols.renderer.base import Base
+from nvimbols.reference import ParentReference
 from nvimbols.content import Content, Wrapper, Highlight, Link
 from nvimbols.denite_content import DeniteContent
 from nvimbols.symbol import LoadableState
@@ -24,8 +26,20 @@ class Renderer(Base):
             if sub_graph_file.state() < LoadableState.PREVIEW:
                 sub_graph_file.request()
                 return loading()
-            else:
+
+            ready = True
+            for n in sub_graph_file.nodes():
+                if n.state() < LoadableState.FULL:
+                    n.request()
+                    ready = False
+                if n.state_source_of(ParentReference) < LoadableState.FULL:
+                    n.request_source_of(ParentReference)
+                    ready = False
+
+            if ready:
                 return self.render_list(graph, sub_graph_file)
+            else:
+                return loading()
 
         def render_symbol(graph, cursor_location):
             symbol = graph.symbol(cursor_location)
@@ -71,7 +85,7 @@ class Renderer(Base):
                 """
                 content += Highlight('Title', "\n  ----  " + ref.display_targets + "  ----  \n")
 
-                if not symbol.state_source_of(reference_class) >= LoadableState.PREVIEW:
+                if symbol.state_source_of(reference_class) < LoadableState.PREVIEW:
                     content += "..."
                     symbol.request_source_of(reference_class, LoadableState.PREVIEW)
                 else:
@@ -94,7 +108,7 @@ class Renderer(Base):
                 """
                 content += Highlight('Title', "\n  ----  " + ref.display_sources + "  ----  \n")
 
-                if not symbol.state_target_of(reference_class) >= LoadableState.PREVIEW:
+                if symbol.state_target_of(reference_class) < LoadableState.PREVIEW:
                     content += "..."
                     symbol.request_target_of(reference_class, LoadableState.PREVIEW)
                 else:
@@ -102,7 +116,7 @@ class Renderer(Base):
                     is_preview = symbol.state_target_of(reference_class) < LoadableState.FULL or (len(arr) > 100)
 
                     if len(arr) > 0:
-                        content.add_quickjump("first_source_of_%s" % ref.name, arr[0].location)
+                        content.add_quickjump("first_target_of_%s" % ref.name, arr[0].location)
 
                     for w in max_slice(100, arr):
                         content += Link(w.location,
@@ -115,15 +129,30 @@ class Renderer(Base):
         return content
 
     def render_list(self, graph, sub_graph):
-        if not sub_graph.state() == LoadableState.FULL:
-            sub_graph.request()
+        parents = [n for n in sub_graph.nodes() if
+                   len(sub_graph.source_of(n, ParentReference)) == 0]
 
-        """
-        TODO
-        Find ultimate targets of ParentReference.. render children and grandchildren
-        """
+        content = Content()
+        if len(parents) == 0:
+            content += "No symbols"
+            return content
 
-        return Content()
+        for p in parents:
+            if p.state() < LoadableState.FULL:
+                p.request()
+
+            content += Link(p.location,
+                            Wrapper(Highlight('Statement', p.name),
+                                    " ",
+                                    Highlight('Type', p.kind),
+                                    "\n"))
+
+            for c in sub_graph.target_of(p, ParentReference):
+                content += Link(c.location,
+                                Wrapper(Highlight('PreProc', "  " + c.name),
+                                        "\n"))
+
+        return content
 
     def render_denite(self, graph, cursor_location, mode):
         def loading():
@@ -136,8 +165,20 @@ class Renderer(Base):
             if sub_graph_file.state() < LoadableState.PREVIEW:
                 sub_graph_file.request()
                 return loading()
-            else:
+
+            ready = True
+            for n in sub_graph_file.nodes():
+                if n.state() < LoadableState.FULL:
+                    n.request()
+                    ready = False
+                if n.state_source_of(ParentReference) < LoadableState.FULL:
+                    n.request_source_of(ParentReference)
+                    ready = False
+
+            if ready:
                 return self.render_denite_list(graph, sub_graph_file)
+            else:
+                return loading()
 
         def render_symbol(graph, cursor_location):
             symbol = graph.symbol(cursor_location)

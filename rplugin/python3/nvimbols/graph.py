@@ -1,3 +1,4 @@
+from nvimbols.util import log
 from nvimbols.observable import Observable
 from nvimbols.job_queue import JobQueue
 from nvimbols.request import LoadSymbolRequest
@@ -41,7 +42,7 @@ class Graph(Observable, BaseGraph):
     """
 
     def nodes(self):
-        return self._symbols
+        return sorted(self._symbols)
 
     def edge_classes(self):
         return self._source.references
@@ -50,13 +51,13 @@ class Graph(Observable, BaseGraph):
         if node not in self._symbols:
             raise Exception("Invalid request")
 
-        return [n._to for n in node._get_source_of(edge_class)]
+        return sorted([n._to for n in node._get_source_of(edge_class)])
 
     def target_of(self, node, edge_class):
         if node not in self._symbols:
             raise Exception("Invalid request")
 
-        return [n._from for n in node._get_target_of(edge_class)]
+        return sorted([n._from for n in node._get_target_of(edge_class)])
 
     """
     Queue functionality
@@ -69,6 +70,7 @@ class Graph(Observable, BaseGraph):
         self._queue.cancel()
 
     def _on_request(self, request):
+        log(request)
         if self._source.request(request):
             request.fulfill()
 
@@ -78,7 +80,7 @@ class Graph(Observable, BaseGraph):
 
     def symbol(self, location, symbol_class=None):
         for s in self._symbols:
-            if s.location.contains(location):
+            if s.location.contains(location) or location.contains(s.location):
                 return s
 
         if symbol_class is not None:

@@ -14,6 +14,9 @@ class Request:
     def fulfill(self):
         pass
 
+    def __str__(self):
+        return "Abstract Request"
+
 
 class LoadSymbolRequest(Request):
     def __init__(self, graph, state, location):
@@ -24,6 +27,9 @@ class LoadSymbolRequest(Request):
         symbol = self.graph.symbol(self.location)
         if symbol is not None:
             symbol.fulfill(self.state)
+
+    def __str__(self):
+        return "Load Symbol at %s to state %s" % (self.location, self.state)
 
 
 class LoadReferencesRequest(Request):
@@ -39,6 +45,12 @@ class LoadReferencesRequest(Request):
         else:
             self.symbol.fulfill_target_of(self.reference_class, self.state)
 
+    def __str__(self):
+        return "Load References %s (%s) at %s to state %s" % (self.reference_class,
+                                                              "Targets" if self.source_of else "Sources",
+                                                              self.symbol.location,
+                                                              self.state)
+
 
 class LoadSubGraphFileRequest(Request):
     def __init__(self, graph, sub_graph, state):
@@ -47,3 +59,8 @@ class LoadSubGraphFileRequest(Request):
 
     def fulfill(self):
         self.sub_graph.fulfill(self.state)
+
+    def __str__(self):
+        return "Load Sub Graph in %s" % self.sub_graph.filename
+
+

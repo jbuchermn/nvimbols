@@ -1,8 +1,11 @@
+from functools import total_ordering
+
 from nvimbols.loadable_state import LoadableState
 from nvimbols.reference import Reference
 from nvimbols.request import LoadSymbolRequest, LoadReferencesRequest
 
 
+@total_ordering
 class Symbol:
     """
     Base class for all nodes.
@@ -22,6 +25,27 @@ class Symbol:
 
     def __str__(self):
         return "Symbol(%s): %s" % (self.name, self.kind)
+
+    def __eq__(self, other):
+        if not isinstance(other, Symbol):
+            return False
+
+        return self.location.contains(other.location) or other.location.contains(self.location)
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __lt__(self, other):
+        if self.location.filename < other.location.filename:
+            return True
+
+        if self.location.start_line < other.location.start_line:
+            return True
+
+        if self.location.start_col < other.location.start_col:
+            return True
+
+        return False
 
     """
     Graph related functionality
@@ -54,7 +78,7 @@ class Symbol:
         return reference
 
     def reference_from(self, reference, symbol):
-        if id(self) == (symbol):
+        if id(self) == id(symbol):
             raise Exception("Circular reference")
 
         if symbol is None:
