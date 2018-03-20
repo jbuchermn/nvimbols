@@ -17,7 +17,6 @@ class JobQueue(Observable):
         self._lock = Lock()
         self._jobs = []
         self._running_jobs = 0
-
         self._skipped_notifications = 0
 
     def is_empty(self):
@@ -92,7 +91,7 @@ class JobQueue(Observable):
             job = self._next_job()
 
             if job is not None:
-                repeat = job() is not None
+                repeat = job()
 
                 if repeat:
                     self.job(job)

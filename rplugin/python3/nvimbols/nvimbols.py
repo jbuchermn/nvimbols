@@ -38,15 +38,13 @@ class NVimbols(Observable):
         self._renderer = renderer
         self.filetypes = source.filetypes
 
-        self._graph = Graph(self._source, self)
         self._current_location = None
 
         self._help_content = setup_nvimbols_help()
 
-        """
-        Pass notifications through
-        """
-        self._graph.on_update(lambda: self._notify())
+        self._graph = None
+        self._graph_on_update_id = None
+        self._new_graph()
 
         """
         'symbol': Display info about the symbol, the cursor is on
@@ -56,6 +54,20 @@ class NVimbols(Observable):
         Implemented as stack
         """
         self._mode = ['symbol']
+
+    def _new_graph(self):
+        if self._graph is not None:
+            self._graph.remove_on_update(self._graph_on_update_id)
+            self._graph = None
+            self._graph_on_update_id = None
+
+        self._graph = Graph(self._source, self)
+
+        """
+        Pass notifications through
+        """
+        self._graph_on_update_id = \
+            self._graph.on_update(lambda: self._notify())
 
     def cancel(self):
         self._graph.cancel()
@@ -79,7 +91,7 @@ class NVimbols(Observable):
 
     def command(self, command):
         if command == 'clear':
-            self._graph.clear()
+            self._new_graph()
             self.update_location(self._current_location)
 
         elif command == 'help':
@@ -98,6 +110,13 @@ class NVimbols(Observable):
                 self._mode = ['symbol'] + self._mode
 
         self._notify()
+
+    def invalidate_file(self, filename, new_text):
+        log("Invalidating...")
+        self._new_graph()
+
+        self._source.on_file_invalidate(filename, new_text)
+        self.update_location(self._current_location)
 
 
 

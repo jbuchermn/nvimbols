@@ -18,3 +18,6 @@ class Base:
     def request(self, req):
         pass
 
+    def on_file_invalidate(self, filename, new_text):
+        pass
+

@@ -160,10 +160,13 @@ class Base:
 
     @abstractmethod
     def request(self, req)
+
+    def on_file_invalidate(self, filename, new_text)
 ```
 
-`_vim` is the neovim object, used for example to retrieve configuration from `init.vim`. `render` and `render_denite` can
-be overridden to provide custom rendering, however `request` is the core method any source must provide. The argument of
+`_vim` is the neovim object, used for example to retrieve configuration from `init.vim`. `on_file_invalidate` can
+be overriden to implement reindexing; it will be called after `InsertLeave` and `TextChanged`, and may be skipped
+if no changes were made. However `request` is the core method any source must provide. The argument of
 `request` is an object of the class `Request`.
 
 
@@ -173,9 +176,8 @@ The neovim object is stored in `self._vim`. In the constructor a source is suppo
 
 - `self.name`: Name of the source,
 - `self.filetypes`: ViM filetypes it supports. The source will not be called on files of other types,
-- `self.references`: `Reference` classes the source supports
-- `self.tasks`: Maximum number of different threads simultaneously calling methods on the source. Set to 1 for
-   non-threadsafe sources.
+- `self.references`: `Reference` classes the source supports,
+- `self.tasks`: Maximum number of different threads simultaneously calling `request` concerning the same graph object. 
 
 ### Method `request`
 

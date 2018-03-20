@@ -21,6 +21,11 @@ class Renderer(Base):
             content += "..."
             return content
 
+        def empty():
+            content = Content()
+            content += "No symbol"
+            return content
+
         def render_list(graph, filename):
             sub_graph_file = graph.sub_graph_file(filename)
             if sub_graph_file.state() < LoadableState.PREVIEW:
@@ -51,7 +56,7 @@ class Renderer(Base):
 
         if mode == 'symbol':
             if graph.is_empty(cursor_location):
-                return render_list(graph, cursor_location.filename)
+                return empty()
             else:
                 return render_symbol(graph, cursor_location)
 
@@ -190,7 +195,7 @@ class Renderer(Base):
 
         if mode == 'symbol':
             if graph.is_empty(cursor_location):
-                return render_list(graph, cursor_location.filename)
+                return DeniteContent()
             else:
                 return render_symbol(graph, cursor_location)
 

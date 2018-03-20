@@ -1,4 +1,5 @@
 from abc import abstractmethod
+import time
 
 from nvimbols.util import log
 from nvimbols.loadable_state import LoadableState
@@ -38,6 +39,7 @@ class Request:
         error = None
 
         if self.state() < self.requested_state:
+            log(self)
             result = False
 
             try:
@@ -49,7 +51,7 @@ class Request:
                 self.fulfill()
 
         if self.state() >= self.requested_state:
-            return
+            return False
 
         if error is not None:
             self._error_count += 1
@@ -57,15 +59,23 @@ class Request:
             self._idle_count += 1
 
         if self._error_count > 3:
+            log("Error in source.request: %s" % error)
             log(self)
-            log(error)
             return False
 
-        if self._idle_count > 3:
-            log(self)
-            log("IDLE")
-            return False
+        if self._idle_count > 5:
+            log("Warning! Idle for: %d" % self._idle_count)
 
+        """
+        TODO! Not nice handling of idle as it blocks...
+        Need better JobQueue
+        """
+        time.sleep(1.)
+
+        """
+        If the source fails to fulfill and does not raise an
+        Exception, assume it is idle and keep on retrying.
+        """
         return True
 
 

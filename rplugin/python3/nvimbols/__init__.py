@@ -231,6 +231,15 @@ class NVimbolsPlugin:
 
         self._main.command(args[0])
 
+    def _invalidate(self, args):
+        if self._main is None:
+            return
+
+        filename = args[0]['filename']
+        text = args[0]['text']
+
+        self._main.invalidate_file(filename, text)
+
     def _cancel(self, args):
         if(self._main is None):
             return
@@ -255,6 +264,10 @@ class NVimbolsPlugin:
     @neovim.function('_nvimbols_command')
     def command(self, args):
         self._dispatch(NVimbolsPlugin._command, self, args)
+
+    @neovim.function('_nvimbols_invalidate')
+    def invalidate(self, args):
+        self._dispatch(NVimbolsPlugin._invalidate, self, args)
 
     @neovim.function('_nvimbols_vimleave')
     def vimleave(self, args):

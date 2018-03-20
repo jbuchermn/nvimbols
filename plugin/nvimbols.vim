@@ -34,6 +34,7 @@ if(g:nvimbols_enabled)
         autocmd BufEnter * :call nvimbols#bufenter()
         autocmd Filetype * :call nvimbols#filetype()
         autocmd InsertLeave * :call nvimbols#insertleave()
+        autocmd TextChanged * :call nvimbols#textchanged()
         autocmd CursorMoved * :call nvimbols#cursormoved()
         autocmd VimLeave * :call nvimbols#vimleave()
     augroup end

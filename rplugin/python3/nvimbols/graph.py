@@ -113,12 +113,6 @@ class Graph(Observable, BaseGraph):
     Interface to NVimbols
     """
 
-    def clear(self):
-        self._queue.cancel()
-        self._symbols = []
-        self._empty = []
-        self._files = []
-
     def request_at(self, location):
         if self.is_empty(location):
             return

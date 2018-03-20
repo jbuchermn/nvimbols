@@ -70,6 +70,13 @@ function! nvimbols#get_quickjump(quickjump) abort
     endif
     return get(s:Jumps.quickjumps, a:quickjump, "")
 endfunction
+
+function nvimbols#invalidate() abort
+    call _nvimbols_invalidate({
+                \   'filename': expand('%:p'),
+                \   'text': join(getline(1,'$'), "\n")
+                \ })
+endfunction
 " }}}
 
 " Window management {{{
@@ -196,7 +203,14 @@ function! nvimbols#bufenter() abort
 endfunction
 
 function! nvimbols#insertleave() abort
+    call nvimbols#invalidate()
     call nvimbols#update_location()
+endfunction
+
+function! nvimbols#textchanged() abort
+    if &filetype != 'nvimbols'
+        call nvimbols#invalidate()
+    endif
 endfunction
 
 function! nvimbols#cursormoved() abort
