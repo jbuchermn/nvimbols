@@ -1,64 +1,134 @@
 from abc import abstractmethod
 
+from nvimbols.util import log
+from nvimbols.loadable_state import LoadableState
+
 
 class Request:
-    def __init__(self, graph, state):
-        """
-        graph is instance of nvimbols.graph.Graph
-        state is instance of nvimbols.symbol.LoadableState
-        """
+    def __init__(self, graph, requested_state):
         self.graph = graph
-        self.state = state
+        self.requested_state = requested_state
+        self._source = None
+
+        """
+        Number of times, request raised an Exception
+        """
+        self._error_count = 0
+
+        """
+        Number of times, request did not fulfill
+        """
+        self._idle_count = 0
+
+    @abstractmethod
+    def state(self):
+        pass
 
     @abstractmethod
     def fulfill(self):
         pass
 
     def __str__(self):
-        return "Abstract Request"
+        return "Request"
+
+    def set_source(self, source):
+        self._source = source
+
+    def run(self):
+        error = None
+
+        if self.state() < self.requested_state:
+            result = False
+
+            try:
+                result = self._source.request(self)
+            except Exception as err:
+                error = err
+
+            if result:
+                self.fulfill()
+
+        if self.state() >= self.requested_state:
+            return
+
+        if error is not None:
+            self._error_count += 1
+        else:
+            self._idle_count += 1
+
+        if self._error_count > 3:
+            log(self)
+            log(error)
+            return False
+
+        if self._idle_count > 3:
+            log(self)
+            log("IDLE")
+            return False
+
+        return True
 
 
 class LoadSymbolRequest(Request):
-    def __init__(self, graph, state, location):
-        super().__init__(graph, state)
+    def __init__(self, graph, requested_state, location):
+        super().__init__(graph, requested_state)
         self.location = location
+
+    def state(self):
+        if self.graph.is_empty(self.location):
+            return LoadableState.FULL
+
+        symbol = self.graph.symbol(self.location)
+        if symbol is None:
+            return LoadableState.NOT_LOADED
+        else:
+            return symbol.state()
 
     def fulfill(self):
         symbol = self.graph.symbol(self.location)
         if symbol is not None:
-            symbol.fulfill(self.state)
+            symbol.fulfill(self.requested_state)
 
     def __str__(self):
-        return "Load Symbol at %s to state %s" % (self.location, self.state)
+        return "Load Symbol at %s to state %s" % (self.location, self.requested_state)
 
 
 class LoadReferencesRequest(Request):
-    def __init__(self, graph, state, symbol, reference_class, source_of):
-        super().__init__(graph, state)
+    def __init__(self, graph, requested_state, symbol, reference_class, source_of):
+        super().__init__(graph, requested_state)
         self.symbol = symbol
         self.reference_class = reference_class
         self.source_of = source_of
 
+    def state(self):
+        if self.source_of:
+            return self.symbol.state_source_of(self.reference_class)
+        else:
+            return self.symbol.state_target_of(self.reference_class)
+
     def fulfill(self):
         if self.source_of:
-            self.symbol.fulfill_source_of(self.reference_class, self.state)
+            self.symbol.fulfill_source_of(self.reference_class, self.requested_state)
         else:
-            self.symbol.fulfill_target_of(self.reference_class, self.state)
+            self.symbol.fulfill_target_of(self.reference_class, self.requested_state)
 
     def __str__(self):
         return "Load References %s (%s) at %s to state %s" % (self.reference_class,
                                                               "Targets" if self.source_of else "Sources",
                                                               self.symbol.location,
-                                                              self.state)
+                                                              self.requested_state)
 
 
 class LoadSubGraphFileRequest(Request):
-    def __init__(self, graph, sub_graph, state):
-        super().__init__(graph, state)
+    def __init__(self, graph, sub_graph, requested_state):
+        super().__init__(graph, requested_state)
         self.sub_graph = sub_graph
 
+    def state(self):
+        return self.sub_graph.state()
+
     def fulfill(self):
-        self.sub_graph.fulfill(self.state)
+        self.sub_graph.fulfill(self.requested_state)
 
     def __str__(self):
         return "Load Sub Graph in %s" % self.sub_graph.filename

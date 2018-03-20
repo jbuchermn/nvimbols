@@ -185,15 +185,15 @@ The argument `req` is of the class
 class Request:
     def __init__(...):
         self.graph = ...
-        self.state = ...
+        self.requested_state = ...
 
     def fulfill(self)
 ```
 
-`self.graph` is the `Graph` object to be changed by the request. `state` provides a way to preview certain information
-(f.e. a class might be used in many places, but this might not be of interest. Instead we don't want to wait a
-horrendous amount of time for the request to finish and preview this list of usages). `state` is an instance of the
-enum
+`self.graph` is the `Graph` object to be changed by the request. `requested_state` provides a way to preview certain
+information (f.e. a class might be used in many places, but this might not be of interest. Instead we don't want to
+wait a horrendous amount of time for the request to finish and preview this list of usages). `state` is an instance
+of the enum
 
 ```py
 class LoadableState(Enum):
@@ -209,7 +209,7 @@ class Symbol:
     ...
     state(self)
     state_source_of(self, reference_class)
-    state_target_of(selfm reference_class)
+    state_target_of(self, reference_class)
     fulfill(self, state)
     fulfill_source_of(self, reference_class, state)
     fulfill_target_of(self, reference_class, state)
@@ -220,12 +220,16 @@ to the symbol. The symbol itself also is stateful, meaning that `name`, `kind` a
 loaded. For example, when retrieving usages of a function, it might be convenient to simply create `Symbol`s that only
 contain the location and fill in further information later (requests will be issued automatically).
 
-Whenever the state changes (in the `Source.request` method) this must be notified by calling the corresponding `fulfill`
-method. (Another way to do this is to call `req.fulfill()` which will call `Symbol.fulfill` with appropriate arguments.
-Or even simpler, if `Source.request` returns `True`, `req.fulfill()` will be called automatically). However, if a source
+A number of classes are stateful in this sense (the contain `state` and `fulfill` methods). For example, `Request` 
+carry derived state. Calling `state` on a `Request` will essentially return the state of the underlying object.
+Also `fulfill` on a `Request` will call underlying `fulfill` methods.
+
+Whenever the state changes (in the `Source.request(...)` method) this must be notified by calling the corresponding
+`fulfill` method. (Either on the `Symbol` or on the `Request`. If `Source.request()` returns `True` this will happen
+automatically). If a source
 loads more information than it is asked, which might be convenient if this information is readily available and will be
-needed later anyway, the appropriate `fullfill` methods need to be called in order to prevent doubly loading the
-information.
+needed later anyway, the appropriate `fullfill` methods should to be called (in addition to returning `True`)
+in order to prevent doubly loading the information.
 
 ### Class `Request`
 

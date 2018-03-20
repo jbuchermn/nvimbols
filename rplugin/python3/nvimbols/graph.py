@@ -15,11 +15,10 @@ class Graph(Observable, BaseGraph):
         self._source = source
         self._parent = parent
 
-        self._queue = JobQueue(self._source.tasks)
-
         """
         Pass notifications from job_queue through
         """
+        self._queue = JobQueue(self._source.tasks)
         self._queue.on_update(lambda: self._notify())
 
         """
@@ -63,16 +62,17 @@ class Graph(Observable, BaseGraph):
     Queue functionality
     """
 
-    def on_request(self, request):
-        self._queue.job(lambda: self._on_request(request))
+    def add_request(self, request):
+        """
+        All requests must be added using this methods.
+        Usually there will be wrappers in Symbol or similar classes.
+        But in the end, any Request object needs to be registered here.
+        """
+        request.set_source(self._source)
+        self._queue.job(lambda: request.run())
 
     def cancel(self):
         self._queue.cancel()
-
-    def _on_request(self, request):
-        log(request)
-        if self._source.request(request):
-            request.fulfill()
 
     """
     Object creation and access
@@ -125,10 +125,10 @@ class Graph(Observable, BaseGraph):
 
         symbol = self.symbol(location)
         if symbol is not None:
-            if symbol.state() == LoadableState.FULL:
+            if symbol.state() >= LoadableState.FULL:
                 return
 
-        self.on_request(LoadSymbolRequest(self, LoadableState.FULL, location))
+        self.add_request(LoadSymbolRequest(self, LoadableState.FULL, location))
 
     def request_file(self, filename):
         sub_graph = self.sub_graph_file(filename)

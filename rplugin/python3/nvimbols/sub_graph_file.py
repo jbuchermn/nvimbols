@@ -17,7 +17,7 @@ class SubGraphFile(SubGraph):
         return self._state
 
     def request(self, state=LoadableState.FULL):
-        self._graph.on_request(LoadSubGraphFileRequest(self._graph, self, state))
+        self._graph.add_request(LoadSubGraphFileRequest(self._graph, self, state))
 
     def fulfill(self, state=LoadableState.FULL):
         self._state = state

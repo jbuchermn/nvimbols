@@ -129,13 +129,13 @@ class Symbol:
         return self._state_target_of[str(reference_class)]
 
     def request(self, state=LoadableState.FULL):
-        self._graph.on_request(LoadSymbolRequest(self._graph, state, self.location))
+        self._graph.add_request(LoadSymbolRequest(self._graph, state, self.location))
 
     def request_source_of(self, reference_class, state=LoadableState.FULL):
-        self._graph.on_request(LoadReferencesRequest(self._graph, state, self, reference_class, True))
+        self._graph.add_request(LoadReferencesRequest(self._graph, state, self, reference_class, True))
 
     def request_target_of(self, reference_class, state=LoadableState.FULL):
-        self._graph.on_request(LoadReferencesRequest(self._graph, state, self, reference_class, False))
+        self._graph.add_request(LoadReferencesRequest(self._graph, state, self, reference_class, False))
 
     def fulfill(self, state=LoadableState.FULL):
         self._state = state

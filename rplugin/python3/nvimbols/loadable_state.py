@@ -13,5 +13,3 @@ class LoadableState(Enum):
             return NotImplemented
 
         return self.value < other.value
-
-
